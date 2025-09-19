@@ -78,6 +78,8 @@
       // Sample question set
       const questions = [
         { text: "What is the past tense of 'go'?", choices: ["goed", "went", "goes", "going"], correct: 1 }
+        { text: "What is the past tense of 'eat'?", choices: ["ate", "eated", "eaten", "eat"], correct: 0 }
+        { text: "What is the past tense of 'drink'?", choices: ["drink", "drunk", "drank", "run"], correct: 2 }
       ];
       set(ref(db, "game1/questions"), questions);
       set(ref(db, "game1/state"), "lobby");
