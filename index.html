@@ -16,14 +16,14 @@
   <!-- Lobby -->
   <div id="lobby">
     <p>Are you the teacher host or a student?</p>
-    <button onclick="setRole('teacher')">Teacher Host</button>
-    <button onclick="setRole('student')">Student</button>
+    <button id="teacherBtn">Teacher Host</button>
+    <button id="studentBtn">Student</button>
   </div>
 
   <!-- Teacher Screen -->
   <div id="teacherView">
     <h2>Teacher Host Screen</h2>
-    <button onclick="startGame()">Start Game</button>
+    <button id="startBtn">Start Game</button>
     <div id="questionArea"></div>
     <h3>Scoreboard</h3>
     <ul id="scoreboard"></ul>
@@ -39,11 +39,10 @@
 
   <!-- Firebase -->
   <script type="module">
-    // Import Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    // 🔥 Your Firebase Config
+    // 🔥 Replace with your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAwCGVcbFrNIcRtbltP8ENl4Z77IsmzoSo",
       authDomain: "esl-quiz.firebaseapp.com",
@@ -61,8 +60,13 @@
     let playerId = null;
     let playerName = null;
 
-    // 🔹 Choose role
-    window.setRole = async function(r) {
+    // ---------------------------
+    // Role selection
+    // ---------------------------
+    document.getElementById("teacherBtn").addEventListener("click", () => setRole("teacher"));
+    document.getElementById("studentBtn").addEventListener("click", () => setRole("student"));
+
+    function setRole(r) {
       role = r;
       document.getElementById("lobby").style.display = "none";
       if (role === "teacher") {
@@ -74,9 +78,10 @@
       }
     }
 
-    // 🔹 Teacher setup
+    // ---------------------------
+    // Teacher setup
+    // ---------------------------
     function setupTeacher() {
-      // Questions
       const questions = [
         { text: "What is the past tense of 'go'?", choices: ["goed", "went", "goes", "going"], correct: 1 },
         { text: "What is the past tense of 'eat'?", choices: ["ate", "eated", "eaten", "eat"], correct: 0 },
@@ -84,15 +89,15 @@
       ];
       set(ref(db, "game1/questions"), questions);
       set(ref(db, "game1/state"), "lobby");
+
+      document.getElementById("startBtn").addEventListener("click", startGame);
     }
 
-    // 🔹 Teacher starts game
-    window.startGame = function() {
+    function startGame() {
       update(ref(db, "game1"), { state: "quiz", currentQuestion: 0, scores: {} });
       loadTeacherView();
     }
 
-    // 🔹 Teacher view logic
     function loadTeacherView() {
       onValue(ref(db, "game1"), (snap) => {
         const data = snap.val();
@@ -114,7 +119,6 @@
           document.getElementById("scoreboard").innerHTML = html;
         }
 
-        // ⚡ Show results at the end
         if (data.state === "results") {
           let winner = getWinner(data.scores);
           document.getElementById("teacherResults").innerHTML =
@@ -124,7 +128,9 @@
       });
     }
 
-    // 🔹 Student setup
+    // ---------------------------
+    // Student setup
+    // ---------------------------
     function setupStudent() {
       playerName = prompt("Enter your name:");
       playerId = Date.now();
@@ -139,7 +145,7 @@
           const q = data.questions[data.currentQuestion];
           document.getElementById("questionAreaStudent").innerHTML =
             `<h3>${q.text}</h3>` +
-            q.choices.map((c, i) => `<div class='choice' onclick='answer(${i})'>${c}</div>`).join("") +
+            q.choices.map((c, i) => `<div class='choice' onclick='window.answer(${i})'>${c}</div>`).join("") +
             `<div id="feedback"></div>`;
           document.getElementById("studentResults").innerHTML = "";
         }
@@ -153,7 +159,9 @@
       });
     }
 
-    // 🔹 Student answers
+    // ---------------------------
+    // Student answers
+    // ---------------------------
     window.answer = function(choiceIndex) {
       get(ref(db, "game1")).then(snap => {
         const data = snap.val();
@@ -168,13 +176,10 @@
           feedback = "❌ Wrong!";
         }
 
-        // Update player score
         update(ref(db, `game1/scores/${playerName}`), (oldScore) => (oldScore || 0) + score);
 
-        // Show feedback
         document.getElementById("feedback").innerHTML = `<p>${feedback}</p>`;
 
-        // ⚡ Move to next question or results
         setTimeout(() => {
           let nextQ = data.currentQuestion + 1;
           if (nextQ < data.questions.length) {
@@ -186,7 +191,9 @@
       });
     }
 
-    // 🔹 Helper: find winner
+    // ---------------------------
+    // Helpers
+    // ---------------------------
     function getWinner(scores) {
       if (!scores) return "No players";
       let max = -1, winner = "No one";
