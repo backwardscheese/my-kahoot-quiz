@@ -143,10 +143,20 @@
 
         if (data.state === "quiz") {
           const q = data.questions[data.currentQuestion];
-          document.getElementById("questionAreaStudent").innerHTML =
-            `<h3>${q.text}</h3>` +
-            q.choices.map((c, i) => `<div class='choice' onclick='window.answer(${i})'>${c}</div>`).join("") +
-            `<div id="feedback"></div>`;
+          let html = `<h3>${q.text}</h3>`;
+          q.choices.forEach((c, i) => {
+            html += `<div class='choice' data-index='${i}'>${c}</div>`;
+          });
+          html += `<div id="feedback"></div>`;
+          document.getElementById("questionAreaStudent").innerHTML = html;
+
+          // attach click listeners
+          document.querySelectorAll(".choice").forEach(btn => {
+            btn.addEventListener("click", () => {
+              handleAnswer(parseInt(btn.dataset.index));
+            });
+          });
+
           document.getElementById("studentResults").innerHTML = "";
         }
 
@@ -162,7 +172,7 @@
     // ---------------------------
     // Student answers
     // ---------------------------
-    window.answer = function(choiceIndex) {
+    function handleAnswer(choiceIndex) {
       get(ref(db, "game1")).then(snap => {
         const data = snap.val();
         const q = data.questions[data.currentQuestion];
