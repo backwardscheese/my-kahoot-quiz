@@ -6,8 +6,9 @@
   <style>
     body { font-family: sans-serif; padding: 20px; }
     #teacherView, #studentView { display: none; }
-    .choice { padding: 10px; margin: 5px; border: 1px solid #ccc; cursor: pointer; }
+    .choice { padding: 10px; margin: 5px; border: 1px solid #ccc; cursor: pointer; display: inline-block; }
     .choice:hover { background: #eee; }
+    .choice:disabled { background: #ddd; cursor: default; }
   </style>
 </head>
 <body>
@@ -40,7 +41,7 @@
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, get, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
     // 🔥 Replace with your Firebase config
     const firebaseConfig = {
@@ -145,16 +146,14 @@
           const q = data.questions[data.currentQuestion];
           let html = `<h3>${q.text}</h3>`;
           q.choices.forEach((c, i) => {
-            html += `<div class='choice' data-index='${i}'>${c}</div>`;
+            html += `<button class='choice' data-index='${i}'>${c}</button>`;
           });
           html += `<div id="feedback"></div>`;
           document.getElementById("questionAreaStudent").innerHTML = html;
 
-          // attach click listeners
+          // Attach click listeners
           document.querySelectorAll(".choice").forEach(btn => {
-            btn.addEventListener("click", () => {
-              handleAnswer(parseInt(btn.dataset.index));
-            });
+            btn.addEventListener("click", () => handleAnswer(parseInt(btn.dataset.index)));
           });
 
           document.getElementById("studentResults").innerHTML = "";
@@ -173,29 +172,29 @@
     // Student answers
     // ---------------------------
     function handleAnswer(choiceIndex) {
-      get(ref(db, "game1")).then(snap => {
+      const scoreRef = ref(db, `game1/scores/${playerName}`);
+      const gameRef = ref(db, "game1");
+
+      // Disable all buttons to prevent multiple clicks
+      document.querySelectorAll(".choice").forEach(btn => btn.disabled = true);
+
+      get(gameRef).then(snap => {
         const data = snap.val();
         const q = data.questions[data.currentQuestion];
-        let score = 0;
-        let feedback = "";
-
-        if (choiceIndex === q.correct) {
-          score = 1;
-          feedback = "✅ Correct!";
-        } else {
-          feedback = "❌ Wrong!";
-        }
-
-        update(ref(db, `game1/scores/${playerName}`), (oldScore) => (oldScore || 0) + score);
+        let feedback = choiceIndex === q.correct ? "✅ Correct!" : "❌ Wrong!";
 
         document.getElementById("feedback").innerHTML = `<p>${feedback}</p>`;
 
+        // Increment score safely using transaction
+        runTransaction(scoreRef, current => (current || 0) + (choiceIndex === q.correct ? 1 : 0));
+
+        // Move to next question or results after 1.5 sec
         setTimeout(() => {
           let nextQ = data.currentQuestion + 1;
           if (nextQ < data.questions.length) {
-            update(ref(db, "game1"), { currentQuestion: nextQ });
+            update(gameRef, { currentQuestion: nextQ });
           } else {
-            update(ref(db, "game1"), { state: "results" });
+            update(gameRef, { state: "results" });
           }
         }, 1500);
       });
@@ -215,6 +214,7 @@
       }
       return winner;
     }
+
   </script>
 </body>
 </html>
