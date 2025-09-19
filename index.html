@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ESL Quiz Prototype</title>
+  <title>ESL Quiz Game</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     #teacherView, #studentView { display: none; }
@@ -12,209 +12,193 @@
   </style>
 </head>
 <body>
-  <h1>ESL Quiz Game (Prototype)</h1>
+<h1>ESL Quiz Game</h1>
 
-  <!-- Lobby -->
-  <div id="lobby">
-    <p>Are you the teacher host or a student?</p>
-    <button id="teacherBtn">Teacher Host</button>
-    <button id="studentBtn">Student</button>
-  </div>
+<div id="lobby">
+  <p>Are you the teacher host or a student?</p>
+  <button id="teacherBtn">Teacher</button>
+  <button id="studentBtn">Student</button>
+</div>
 
-  <!-- Teacher Screen -->
-  <div id="teacherView">
-    <h2>Teacher Host Screen</h2>
-    <button id="startBtn">Start Game</button>
-    <div id="questionArea"></div>
-    <h3>Scoreboard</h3>
-    <ul id="scoreboard"></ul>
-    <div id="teacherResults"></div>
-  </div>
+<div id="teacherView">
+  <h2>Teacher Screen</h2>
+  <button id="startBtn">Start Game</button>
+  <div id="questionArea"></div>
+  <h3>Scoreboard</h3>
+  <ul id="scoreboard"></ul>
+  <div id="teacherResults"></div>
+</div>
 
-  <!-- Student Screen -->
-  <div id="studentView">
-    <h2 id="studentName"></h2>
-    <div id="questionAreaStudent"></div>
-    <div id="studentResults"></div>
-  </div>
+<div id="studentView">
+  <h2 id="studentName"></h2>
+  <div id="questionAreaStudent"></div>
+  <div id="studentResults"></div>
+</div>
 
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, get, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, set, onValue, update, get, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    // 🔥 Replace with your Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyAwCGVcbFrNIcRtbltP8ENl4Z77IsmzoSo",
-      authDomain: "esl-quiz.firebaseapp.com",
-      databaseURL: "https://esl-quiz-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "esl-quiz",
-      storageBucket: "esl-quiz.firebasestorage.app",
-      messagingSenderId: "999634500142",
-      appId: "1:999634500142:web:17b206cfaa5a2f6212bdbf"
-    };
+// --- Your Firebase config ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAwCGVcbFrNIcRtbltP8ENl4Z77IsmzoSo",
+  authDomain: "esl-quiz.firebaseapp.com",
+  databaseURL: "https://esl-quiz-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "esl-quiz",
+  storageBucket: "esl-quiz.firebasestorage.app",
+  messagingSenderId: "999634500142",
+  appId: "1:999634500142:web:17b206cfaa5a2f6212bdbf"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    let role = null;
-    let playerId = null;
-    let playerName = null;
+// --- Global variables ---
+let role = null;
+let playerName = null;
+let playerId = null;
+let currentQuestionIndex = null;
+let questionAnswered = false;
 
-    // ---------------------------
-    // Role selection
-    // ---------------------------
-    document.getElementById("teacherBtn").addEventListener("click", () => setRole("teacher"));
-    document.getElementById("studentBtn").addEventListener("click", () => setRole("student"));
+// --- Role selection ---
+document.getElementById("teacherBtn").addEventListener("click", () => setRole("teacher"));
+document.getElementById("studentBtn").addEventListener("click", () => setRole("student"));
 
-    function setRole(r) {
-      role = r;
-      document.getElementById("lobby").style.display = "none";
-      if (role === "teacher") {
-        document.getElementById("teacherView").style.display = "block";
-        setupTeacher();
+function setRole(r) {
+  role = r;
+  document.getElementById("lobby").style.display = "none";
+  if (role === "teacher") {
+    document.getElementById("teacherView").style.display = "block";
+    setupTeacher();
+  } else {
+    document.getElementById("studentView").style.display = "block";
+    setupStudent();
+  }
+}
+
+// --- Teacher setup ---
+function setupTeacher() {
+  const questions = [
+    { text: "What is the past tense of 'go'?", choices: ["goed", "went", "goes", "going"], correct: 1 },
+    { text: "What is the past tense of 'eat'?", choices: ["ate", "eated", "eaten", "eat"], correct: 0 },
+    { text: "What is the past tense of 'drink'?", choices: ["drink", "drunk", "drank", "run"], correct: 2 }
+  ];
+  set(ref(db, "game1/questions"), questions);
+  set(ref(db, "game1/state"), "lobby");
+  set(ref(db, "game1/scores"), {});
+
+  document.getElementById("startBtn").addEventListener("click", () => {
+    update(ref(db, "game1"), { state: "quiz", currentQuestion: 0 });
+  });
+
+  onValue(ref(db, "game1"), (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    // Render scoreboard
+    if (data.scores) {
+      const html = Object.entries(data.scores).map(([name, score]) => `<li>${name}: ${score}</li>`).join("");
+      document.getElementById("scoreboard").innerHTML = html;
+    }
+
+    // Show current question text
+    if (data.state === "quiz") {
+      const q = data.questions[data.currentQuestion];
+      document.getElementById("questionArea").innerHTML = `<h3>${q.text}</h3>`;
+    }
+
+    // Show final winner
+    if (data.state === "results") {
+      const winner = getWinner(data.scores);
+      document.getElementById("teacherResults").innerHTML = `<h2>🏆 Winner: ${winner}</h2>`;
+      document.getElementById("questionArea").innerHTML = "";
+    }
+  });
+}
+
+// --- Student setup ---
+function setupStudent() {
+  playerName = prompt("Enter your name:");
+  playerId = Date.now();
+  set(ref(db, `game1/players/${playerId}`), { name: playerName, score: 0 });
+  document.getElementById("studentName").textContent = "Welcome, " + playerName;
+
+  onValue(ref(db, "game1"), (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    if (data.state === "quiz" && data.currentQuestion !== currentQuestionIndex) {
+      currentQuestionIndex = data.currentQuestion;
+      questionAnswered = false;
+
+      const q = data.questions[currentQuestionIndex];
+      let html = `<h3>${q.text}</h3>`;
+      q.choices.forEach((c, i) => {
+        html += `<button class='choice' data-index='${i}'>${c}</button>`;
+      });
+      html += `<div id="feedback"></div>`;
+      document.getElementById("questionAreaStudent").innerHTML = html;
+
+      // Add click listeners
+      document.querySelectorAll(".choice").forEach(btn => {
+        btn.addEventListener("click", () => handleAnswer(i=btn.dataset.index, correctIndex=q.correct));
+      });
+    }
+
+    // Show results
+    if (data.state === "results") {
+      const winner = getWinner(data.scores);
+      document.getElementById("studentResults").innerHTML = `<h2>🏆 Winner: ${winner}</h2>`;
+      document.getElementById("questionAreaStudent").innerHTML = "";
+    }
+  });
+}
+
+// --- Student answer handler ---
+function handleAnswer(i, correctIndex) {
+  if (questionAnswered) return; // only allow one click per question
+  questionAnswered = true;
+
+  const choiceIndex = parseInt(i);
+  const scoreRef = ref(db, `game1/scores/${playerName}`);
+  const gameRef = ref(db, "game1");
+
+  // Disable buttons
+  document.querySelectorAll(".choice").forEach(btn => btn.disabled = true);
+
+  // Show feedback
+  document.getElementById("feedback").innerHTML =
+    choiceIndex === correctIndex ? "✅ Correct!" : "❌ Wrong!";
+
+  // Update score safely
+  runTransaction(scoreRef, current => (current || 0) + (choiceIndex === correctIndex ? 1 : 0));
+
+  // Move to next question after delay
+  setTimeout(() => {
+    get(gameRef).then(snap => {
+      const data = snap.val();
+      const nextQ = currentQuestionIndex + 1;
+      if (nextQ < data.questions.length) {
+        update(gameRef, { currentQuestion: nextQ });
       } else {
-        document.getElementById("studentView").style.display = "block";
-        setupStudent();
+        update(gameRef, { state: "results" });
       }
+    });
+  }, 1500);
+}
+
+// --- Helper ---
+function getWinner(scores) {
+  if (!scores) return "No players";
+  let max = -1, winner = "No one";
+  for (const [name, score] of Object.entries(scores)) {
+    if (score > max) {
+      max = score;
+      winner = name;
     }
-
-    // ---------------------------
-    // Teacher setup
-    // ---------------------------
-    function setupTeacher() {
-      const questions = [
-        { text: "What is the past tense of 'go'?", choices: ["goed", "went", "goes", "going"], correct: 1 },
-        { text: "What is the past tense of 'eat'?", choices: ["ate", "eated", "eaten", "eat"], correct: 0 },
-        { text: "What is the past tense of 'drink'?", choices: ["drink", "drunk", "drank", "run"], correct: 2 }
-      ];
-      set(ref(db, "game1/questions"), questions);
-      set(ref(db, "game1/state"), "lobby");
-
-      document.getElementById("startBtn").addEventListener("click", startGame);
-    }
-
-    function startGame() {
-      update(ref(db, "game1"), { state: "quiz", currentQuestion: 0, scores: {} });
-      loadTeacherView();
-    }
-
-    function loadTeacherView() {
-      onValue(ref(db, "game1"), (snap) => {
-        const data = snap.val();
-        if (!data) return;
-
-        if (data.state === "quiz") {
-          const q = data.questions[data.currentQuestion];
-          document.getElementById("questionArea").innerHTML =
-            `<h3>${q.text}</h3>
-             <ul>${q.choices.map(c => `<li>${c}</li>`).join("")}</ul>`;
-          document.getElementById("teacherResults").innerHTML = "";
-        }
-
-        if (data.scores) {
-          let html = "";
-          for (let [name, score] of Object.entries(data.scores)) {
-            html += `<li>${name}: ${score}</li>`;
-          }
-          document.getElementById("scoreboard").innerHTML = html;
-        }
-
-        if (data.state === "results") {
-          let winner = getWinner(data.scores);
-          document.getElementById("teacherResults").innerHTML =
-            `<h2>🏆 Winner: ${winner}</h2>`;
-          document.getElementById("questionArea").innerHTML = "";
-        }
-      });
-    }
-
-    // ---------------------------
-    // Student setup
-    // ---------------------------
-    function setupStudent() {
-      playerName = prompt("Enter your name:");
-      playerId = Date.now();
-      set(ref(db, `game1/players/${playerId}`), { name: playerName, score: 0 });
-      document.getElementById("studentName").textContent = "Welcome, " + playerName;
-
-      onValue(ref(db, "game1"), (snap) => {
-        const data = snap.val();
-        if (!data) return;
-
-        if (data.state === "quiz") {
-          const q = data.questions[data.currentQuestion];
-          let html = `<h3>${q.text}</h3>`;
-          q.choices.forEach((c, i) => {
-            html += `<button class='choice' data-index='${i}'>${c}</button>`;
-          });
-          html += `<div id="feedback"></div>`;
-          document.getElementById("questionAreaStudent").innerHTML = html;
-
-          // Attach click listeners
-          document.querySelectorAll(".choice").forEach(btn => {
-            btn.addEventListener("click", () => handleAnswer(parseInt(btn.dataset.index)));
-          });
-
-          document.getElementById("studentResults").innerHTML = "";
-        }
-
-        if (data.state === "results") {
-          let winner = getWinner(data.scores);
-          document.getElementById("studentResults").innerHTML =
-            `<h2>🏆 Winner: ${winner}</h2>`;
-          document.getElementById("questionAreaStudent").innerHTML = "";
-        }
-      });
-    }
-
-    // ---------------------------
-    // Student answers
-    // ---------------------------
-    function handleAnswer(choiceIndex) {
-      const scoreRef = ref(db, `game1/scores/${playerName}`);
-      const gameRef = ref(db, "game1");
-
-      // Disable all buttons to prevent multiple clicks
-      document.querySelectorAll(".choice").forEach(btn => btn.disabled = true);
-
-      get(gameRef).then(snap => {
-        const data = snap.val();
-        const q = data.questions[data.currentQuestion];
-        let feedback = choiceIndex === q.correct ? "✅ Correct!" : "❌ Wrong!";
-
-        document.getElementById("feedback").innerHTML = `<p>${feedback}</p>`;
-
-        // Increment score safely using transaction
-        runTransaction(scoreRef, current => (current || 0) + (choiceIndex === q.correct ? 1 : 0));
-
-        // Move to next question or results after 1.5 sec
-        setTimeout(() => {
-          let nextQ = data.currentQuestion + 1;
-          if (nextQ < data.questions.length) {
-            update(gameRef, { currentQuestion: nextQ });
-          } else {
-            update(gameRef, { state: "results" });
-          }
-        }, 1500);
-      });
-    }
-
-    // ---------------------------
-    // Helpers
-    // ---------------------------
-    function getWinner(scores) {
-      if (!scores) return "No players";
-      let max = -1, winner = "No one";
-      for (let [name, score] of Object.entries(scores)) {
-        if (score > max) {
-          max = score;
-          winner = name;
-        }
-      }
-      return winner;
-    }
-
-  </script>
+  }
+  return winner;
+}
+</script>
 </body>
 </html>
