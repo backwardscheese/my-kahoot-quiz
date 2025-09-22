@@ -179,12 +179,24 @@ function handleAnswer(i, correctIndex) {
       const data = snap.val();
       const nextQ = currentQuestionIndex + 1;
       if (nextQ < data.questions.length) {
+        // Advance to next question
         update(gameRef, { currentQuestion: nextQ });
       } else {
+        // Quiz finished → mark results and redirect
         update(gameRef, { state: "results" });
+        endQuiz();
       }
     });
   }, 1500);
+}
+
+// --- End of quiz logic ---
+function endQuiz() {
+  document.getElementById("studentArea").innerHTML = "<h2>Quiz Finished!</h2>";
+
+  setTimeout(() => {
+    window.location.href = "minigame.html";
+  }, 2000); // 2s delay before going to minigame
 }
 
 // --- Helper ---
@@ -199,15 +211,6 @@ function getWinner(scores) {
   }
   return winner;
 }
-
-function endQuiz() {
-  document.getElementById("studentArea").innerHTML = "<h2>Quiz Finished!</h2>";
-
-  setTimeout(() => {
-    window.location.href = "minigame.html";
-  }, 2000); // only after finishing quiz
-}
-
 
 </script>
 </body>
