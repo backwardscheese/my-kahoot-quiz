@@ -199,8 +199,15 @@ function getWinner(scores) {
   }
   return winner;
 }
-// When quiz is finished, redirect to the minigame page
-window.location.href = "minigame.html";
+
+function endQuiz() {
+  document.getElementById("studentArea").innerHTML = "<h2>Quiz Finished!</h2>";
+
+  setTimeout(() => {
+    window.location.href = "minigame.html";
+  }, 2000); // only after finishing quiz
+}
+
 
 </script>
 </body>
