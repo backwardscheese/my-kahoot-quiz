@@ -6,9 +6,8 @@
 <style>
   body { font-family: sans-serif; padding: 20px; text-align: center; }
   #teacherView, #studentView { display: none; }
-  .choice { padding: 10px 20px; margin: 5px; cursor: pointer; }
-  .choice:hover { background-color: #eee; }
-  .choice[disabled] { background-color: #ddd; cursor: default; }
+  .choice { padding: 10px 20px; margin: 5px; cursor: pointer; display: block; margin: 5px auto; }
+  .choice:disabled { background-color: #ddd; cursor: default; }
 </style>
 </head>
 <body>
@@ -24,9 +23,7 @@
 <div id="teacherView">
   <h2>Teacher Screen</h2>
   <button id="startBtn">Start Quiz</button>
-  <div id="teacherQuestion"></div>
-  <h3>Scoreboard</h3>
-  <ul id="scoreboard"></ul>
+  <div id="teacherStatus"></div>
 </div>
 
 <div id="studentView">
@@ -52,28 +49,28 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Elements
-const lobby = document.getElementById("lobby");
-const teacherView = document.getElementById("teacherView");
-const studentView = document.getElementById("studentView");
-const questionContainer = document.getElementById("questionContainer");
-const feedbackEl = document.getElementById("feedback");
-const studentNameEl = document.getElementById("studentName");
-const scoreboardEl = document.getElementById("scoreboard");
-const startBtn = document.getElementById("startBtn");
-
-// State
-let role = null;
-let playerName = "";
-let currentQuestionIndex = 0;
-let questionAnswered = false;
-
 // Questions
 const questions = [
   { text: "Past tense of 'go'?", choices: ["goed","went","goes","going"], correct: 1 },
   { text: "Past tense of 'eat'?", choices: ["ate","eated","eaten","eat"], correct: 0 },
   { text: "Past tense of 'drink'?", choices: ["drink","drunk","drank","run"], correct: 2 }
 ];
+
+// DOM elements
+const lobby = document.getElementById("lobby");
+const teacherView = document.getElementById("teacherView");
+const studentView = document.getElementById("studentView");
+const startBtn = document.getElementById("startBtn");
+const teacherStatus = document.getElementById("teacherStatus");
+const questionContainer = document.getElementById("questionContainer");
+const feedbackEl = document.getElementById("feedback");
+const studentNameEl = document.getElementById("studentName");
+
+// State
+let role = null;
+let playerName = "";
+let currentQuestionIndex = 0;
+let questionAnswered = false;
 
 // ===== Role selection =====
 document.getElementById("teacherBtn").onclick = () => selectRole("teacher");
@@ -93,26 +90,24 @@ function selectRole(r) {
 
 // ===== Teacher =====
 function setupTeacher() {
-  // initialize scores in DB
-  const scoresRef = ref(db, "game1/scores");
-  set(scoresRef, {}); // reset
   startBtn.onclick = () => {
-    update(ref(db, "game1"), { currentQuestion: 0, state: "quiz" });
+    // Reset game state
+    set(ref(db, "game1"), {
+      state: "quiz",
+      currentQuestion: 0,
+      scores: {}
+    });
+    teacherStatus.textContent = "Quiz started!";
   };
-  // Update scoreboard live
-  onValue(ref(db, "game1/scores"), snap => {
-    const scores = snap.val() || {};
-    scoreboardEl.innerHTML = Object.entries(scores).map(([n,s]) => `<li>${n}: ${s}</li>`).join("");
-  });
 }
 
 // ===== Student =====
 function setupStudent() {
   playerName = prompt("Enter your name:") || "Player" + Math.floor(Math.random()*1000);
   studentNameEl.textContent = "Welcome, " + playerName;
-  update(ref(db, `game1/scores/${playerName}`), 0); // ensure score exists
+  update(ref(db, `game1/scores/${playerName}`), 0);
 
-  // Listen for question updates
+  // Watch for game state
   onValue(ref(db, "game1"), snap => {
     const data = snap.val();
     if (!data) return;
@@ -120,43 +115,41 @@ function setupStudent() {
     if (data.state === "quiz") {
       if (data.currentQuestion !== currentQuestionIndex) {
         currentQuestionIndex = data.currentQuestion;
-        questionAnswered = false;
         renderQuestion(questions[currentQuestionIndex]);
       }
     } else if (data.state === "results") {
       questionContainer.innerHTML = "<h2>Quiz Finished!</h2>";
-      feedbackEl.innerHTML = "Redirecting to minigame...";
+      feedbackEl.textContent = "Redirecting to minigame...";
       setTimeout(() => window.location.href = "minigame.html", 1500);
     }
   });
 }
 
-// Render a question
+// Render question
 function renderQuestion(q) {
+  questionAnswered = false;
   questionContainer.innerHTML = `<h3>${q.text}</h3>`;
+  feedbackEl.textContent = "";
   q.choices.forEach((choice, i) => {
     const btn = document.createElement("button");
     btn.textContent = choice;
     btn.className = "choice";
-    btn.disabled = false;
     btn.onclick = () => handleAnswer(i, q.correct);
     questionContainer.appendChild(btn);
   });
-  feedbackEl.textContent = "";
 }
 
 // Handle student answer
-async function handleAnswer(choiceIndex, correctIndex) {
+function handleAnswer(choiceIndex, correctIndex) {
   if (questionAnswered) return;
   questionAnswered = true;
 
-  feedbackEl.textContent = choiceIndex === correctIndex ? "✅ Correct!" : `❌ Wrong! Correct: ${questions[currentQuestionIndex].choices[correctIndex]}`;
+  feedbackEl.textContent = choiceIndex === correctIndex ? "✅ Correct!" : "❌ Wrong!";
 
   const scoreRef = ref(db, `game1/scores/${playerName}`);
-  await runTransaction(scoreRef, current => (current||0) + (choiceIndex === correctIndex ? 1 : 0));
+  runTransaction(scoreRef, current => (current||0) + (choiceIndex === correctIndex ? 1 : 0));
 
-  // Move to next question after delay
-  setTimeout(async () => {
+  setTimeout(() => {
     if (currentQuestionIndex + 1 < questions.length) {
       update(ref(db, "game1"), { currentQuestion: currentQuestionIndex + 1 });
     } else {
