@@ -181,6 +181,7 @@ function handleAnswer(i, correctIndex) {
       if (nextQ < data.questions.length) {
         // Advance to next question
         update(gameRef, { currentQuestion: nextQ });
+        questionAnswered = false; // ✅ allow answering again
       } else {
         // Quiz finished → mark results and redirect
         update(gameRef, { state: "results" });
@@ -198,6 +199,7 @@ function endQuiz() {
     window.location.href = "minigame.html";
   }, 2000); // 2s delay before going to minigame
 }
+
 
 // --- Helper ---
 function getWinner(scores) {
