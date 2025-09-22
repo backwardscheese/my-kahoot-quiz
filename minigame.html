@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Exploding Switches Minigame</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    #gameArea {
+      margin-top: 20px;
+    }
+    .switch {
+      display: inline-block;
+      margin: 10px;
+      padding: 20px;
+      background: #4CAF50;
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 20px;
+      transition: background 0.3s;
+    }
+    .switch:hover {
+      background: #45a049;
+    }
+    .eliminated {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body>
+  <h1>Exploding Switches Minigame</h1>
+  <p id="status">Game is starting...</p>
+  <div id="gameArea"></div>
+
+  <script>
+    // Teams
+    let teams = [
+      { name: "Team 1", eliminated: false },
+      { name: "Team 2", eliminated: false },
+      { name: "Team 3", eliminated: false },
+      { name: "Team 4", eliminated: false }
+    ];
+
+    let currentTeamIndex = 0;
+    let bombIndex = -1;
+
+    function startRound() {
+      document.getElementById("gameArea").innerHTML = "";
+      document.getElementById("status").textContent = teams[currentTeamIndex].name + "'s turn!";
+
+      // Pick a random bomb
+      bombIndex = Math.floor(Math.random() * 4);
+
+      // Create 4 switches
+      for (let i = 0; i < 4; i++) {
+        const btn = document.createElement("div");
+        btn.className = "switch";
+        btn.textContent = "Switch " + (i + 1);
+        btn.onclick = () => handleChoice(i, btn);
+        document.getElementById("gameArea").appendChild(btn);
+      }
+    }
+
+    function handleChoice(choiceIndex, btn) {
+      // Disable all switches after a choice
+      const switches = document.querySelectorAll(".switch");
+      switches.forEach(sw => sw.onclick = null);
+
+      if (choiceIndex === bombIndex) {
+        teams[currentTeamIndex].eliminated = true;
+        btn.style.background = "red";
+        document.getElementById("status").textContent = teams[currentTeamIndex].name + " exploded!";
+      } else {
+        btn.style.background = "gold";
+        document.getElementById("status").textContent = teams[currentTeamIndex].name + " survived!";
+      }
+
+      setTimeout(nextTurn, 1500);
+    }
+
+    function nextTurn() {
+      // Check how many teams left
+      const aliveTeams = teams.filter(t => !t.eliminated);
+      if (aliveTeams.length === 1) {
+        document.getElementById("gameArea").innerHTML = "";
+        document.getElementById("status").textContent = aliveTeams[0].name + " wins the round!";
+        return;
+      }
+
+      // Move to next team
+      do {
+        currentTeamIndex = (currentTeamIndex + 1) % teams.length;
+      } while (teams[currentTeamIndex].eliminated);
+
+      startRound();
+    }
+
+    // Start game
+    startRound();
+  </script>
+</body>
+</html>
