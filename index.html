@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESL Quiz Game</title>
+<style>
+  body { 
+    font-family: sans-serif; 
+    padding: 20px; 
+    text-align: center; 
+    max-width: 600px; 
+    margin: 0 auto; 
+  }
+  #teacherView, #studentView { display: none; }
+  .choice { 
+    padding: 10px 20px; 
+    margin: 5px; 
+    cursor: pointer; 
+    display: block; 
+    margin: 5px auto; 
+    background-color: #f0f0f0;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    min-width: 200px;
+  }
+  .choice:hover {
+    background-color: #e0e0e0;
+  }
+  .choice:disabled { 
+    background-color: #ddd; 
+    cursor: default; 
+  }
+  button {
+    padding: 10px 20px;
+    margin: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  #feedback {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 20px 0;
+    min-height: 30px;
+  }
+  .error {
+    color: red;
+    background-color: #ffe6e6;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+  }
+  .success {
+    color: green;
+  }
+  .wrong {
+    color: red;
+  }
+  #playersList {
+    text-align: left;
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 10px 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>ESL Quiz Game</h1>
+
+<div id="lobby">
+  <p>Are you the teacher or a student?</p>
+  <button id="teacherBtn">Teacher</button>
+  <button id="studentBtn">Student</button>
+</div>
+
+<div id="teacherView">
+  <h2>Teacher Control Panel</h2>
+  <button id="startBtn">Start New Quiz</button>
+  <button id="nextBtn" style="display: none;">Next Question</button>
+  <button id="endBtn" style="display: none;">End Quiz</button>
+  <div id="teacherStatus"></div>
+  <div id="playersList"></div>
+  <div id="currentQuestionDisplay"></div>
+</div>
+
+<div id="studentView">
+  <h2 id="studentName"></h2>
+  <div id="waitingMessage">Waiting for teacher to start the quiz...</div>
+  <div id="questionContainer"></div>
+  <div id="feedback"></div>
+  <div id="scoreDisplay"></div>
+</div>
+
+<script type="module">
+// Use a simpler in-memory approach instead of Firebase for testing
+let gameState = {
+  state: "lobby", // lobby, quiz, results
+  currentQuestion: 0,
+  scores: {},
+  players: []
+};
+
+// Simulate Firebase-like behavior with localStorage for persistence
+function saveGameState() {
+  localStorage.setItem('eslQuizGame', JSON.stringify(gameState));
+}
+
+function loadGameState() {
+  const saved = localStorage.getItem('eslQuizGame');
+  if (saved) {
+    gameState = JSON.parse(saved);
+  }
+}
+
+function broadcastStateChange() {
+  // Simulate real-time updates by triggering events
+  window.dispatchEvent(new CustomEvent('gameStateChanged', { detail: gameState }));
+}
+
+// Questions
+const questions = [
+  { text: "What is the past tense of 'go'?", choices: ["goed","went","goes","going"], correct: 1 },
+  { text: "What is the past tense of 'eat'?", choices: ["ate","eated","eaten","eat"], correct: 0 },
+  { text: "What is the past tense of 'drink'?", choices: ["drink","drunk","drank","drinks"], correct: 2 },
+  { text: "Which is correct?", choices: ["I have went","I have gone","I have go","I have going"], correct: 1 },
+  { text: "Choose the correct sentence:", choices: ["She don't like pizza","She doesn't like pizza","She no like pizza","She not like pizza"], correct: 1 }
+];
+
+// DOM elements
+const lobby = document.getElementById("lobby");
+const teacherView = document.getElementById("teacherView");
+const studentView = document.getElementById("studentView");
+const startBtn = document.getElementById("startBtn");
+const nextBtn = document.getElementById("nextBtn");
+const endBtn = document.getElementById("endBtn");
+const teacherStatus = document.getElementById("teacherStatus");
+const questionContainer = document.getElementById("questionContainer");
+const feedbackEl = document.getElementById("feedback");
+const studentNameEl = document.getElementById("studentName");
+const waitingMessage = document.getElementById("waitingMessage");
+const scoreDisplay = document.getElementById("scoreDisplay");
+const playersList = document.getElementById("playersList");
+const currentQuestionDisplay = document.getElementById("currentQuestionDisplay");
+
+// State
+let role = null;
+let playerName = "";
+let currentQuestionIndex = 0;
+let questionAnswered = false;
+
+// Load saved state on page load
+loadGameState();
+
+// ===== Role selection =====
+document.getElementById("teacherBtn").onclick = () => selectRole("teacher");
+document.getElementById("studentBtn").onclick = () => selectRole("student");
+
+function selectRole(r) {
+  role = r;
+  lobby.style.display = "none";
+  if (role === "teacher") {
+    teacherView.style.display = "block";
+    setupTeacher();
+  } else {
+    studentView.style.display = "block";
+    setupStudent();
+  }
+}
+
+// ===== Teacher Functions =====
+function setupTeacher() {
+  updateTeacherDisplay();
+  
+  startBtn.onclick = () => {
+    try {
+      gameState = {
+        state: "quiz",
+        currentQuestion: 0,
+        scores: {},
+        players: []
+      };
+      currentQuestionIndex = 0;
+      saveGameState();
+      broadcastStateChange();
+      teacherStatus.innerHTML = '<div class="success">Quiz started! Question 1 of ' + questions.length + '</div>';
+      startBtn.style.display = "none";
+      nextBtn.style.display = "inline-block";
+      endBtn.style.display = "inline-block";
+      updateTeacherDisplay();
+    } catch (error) {
+      teacherStatus.innerHTML = '<div class="error">Error starting quiz: ' + error.message + '</div>';
+    }
+  };
+
+  nextBtn.onclick = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      currentQuestionIndex++;
+      gameState.currentQuestion = currentQuestionIndex;
+      saveGameState();
+      broadcastStateChange();
+      teacherStatus.innerHTML = '<div class="success">Moved to question ' + (currentQuestionIndex + 1) + ' of ' + questions.length + '</div>';
+      updateTeacherDisplay();
+    } else {
+      endQuiz();
+    }
+  };
+
+  endBtn.onclick = () => {
+    endQuiz();
+  };
+}
+
+function endQuiz() {
+  gameState.state = "results";
+  saveGameState();
+  broadcastStateChange();
+  teacherStatus.innerHTML = '<div class="success">Quiz ended! Final results shown to students.</div>';
+  nextBtn.style.display = "none";
+  endBtn.style.display = "none";
+  startBtn.style.display = "inline-block";
+  updateTeacherDisplay();
+}
+
+function updateTeacherDisplay() {
+  // Update players list
+  if (gameState.players && gameState.players.length > 0) {
+    let playersHtml = '<h3>Connected Players:</h3><ul>';
+    gameState.players.forEach(player => {
+      const score = gameState.scores[player] || 0;
+      playersHtml += `<li>${player}: ${score} points</li>`;
+    });
+    playersHtml += '</ul>';
+    playersList.innerHTML = playersHtml;
+  } else {
+    playersList.innerHTML = '<p>No players connected yet.</p>';
+  }
+
+  // Update current question display
+  if (gameState.state === "quiz" && questions[currentQuestionIndex]) {
+    const q = questions[currentQuestionIndex];
+    currentQuestionDisplay.innerHTML = `
+      <h3>Current Question (${currentQuestionIndex + 1}/${questions.length}):</h3>
+      <p><strong>${q.text}</strong></p>
+      <ul style="text-align: left;">
+        ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: green; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✓' : ''}</li>`).join('')}
+      </ul>
+    `;
+  } else if (gameState.state === "results") {
+    currentQuestionDisplay.innerHTML = '<h3>Quiz Complete!</h3>';
+  } else {
+    currentQuestionDisplay.innerHTML = '<p>No quiz in progress.</p>';
+  }
+}
+
+// ===== Student Functions =====
+function setupStudent() {
+  playerName = prompt("Enter your name:") || "Player" + Math.floor(Math.random()*1000);
+  studentNameEl.textContent = "Welcome, " + playerName + "!";
+  
+  // Add player to game
+  if (!gameState.players.includes(playerName)) {
+    gameState.players.push(playerName);
+    gameState.scores[playerName] = 0;
+    saveGameState();
+    broadcastStateChange();
+  }
+  
+  updateStudentDisplay();
+
+  // Listen for game state changes
+  window.addEventListener('gameStateChanged', (event) => {
+    const data = event.detail;
+    if (!data) return;
+
+    if (data.state === "quiz") {
+      waitingMessage.style.display = "none";
+      if (data.currentQuestion !== currentQuestionIndex) {
+        currentQuestionIndex = data.currentQuestion;
+        if (questions[currentQuestionIndex]) {
+          renderQuestion(questions[currentQuestionIndex]);
+        }
+      }
+    } else if (data.state === "results") {
+      showResults();
+    } else {
+      waitingMessage.style.display = "block";
+      questionContainer.innerHTML = "";
+      feedbackEl.textContent = "";
+    }
+    
+    updateStudentDisplay();
+  });
+
+  // Check initial state
+  if (gameState.state === "quiz" && questions[gameState.currentQuestion]) {
+    waitingMessage.style.display = "none";
+    currentQuestionIndex = gameState.currentQuestion;
+    renderQuestion(questions[currentQuestionIndex]);
+  }
+}
+
+function updateStudentDisplay() {
+  const score = gameState.scores[playerName] || 0;
+  scoreDisplay.innerHTML = `<p>Your Score: ${score}/${currentQuestionIndex + 1}</p>`;
+}
+
+function renderQuestion(q) {
+  if (!q) return;
+  
+  questionAnswered = false;
+  questionContainer.innerHTML = `<h3>Question ${currentQuestionIndex + 1}: ${q.text}</h3>`;
+  feedbackEl.textContent = "";
+  
+  q.choices.forEach((choice, i) => {
+    const btn = document.createElement("button");
+    btn.textContent = choice;
+    btn.className = "choice";
+    btn.onclick = () => handleAnswer(i, q.correct);
+    questionContainer.appendChild(btn);
+  });
+  
+  updateStudentDisplay();
+}
+
+function handleAnswer(choiceIndex, correctIndex) {
+  if (questionAnswered) return;
+  questionAnswered = true;
+
+  // Disable all buttons
+  const buttons = questionContainer.querySelectorAll('.choice');
+  buttons.forEach(btn => btn.disabled = true);
+
+  const isCorrect = choiceIndex === correctIndex;
+  
+  if (isCorrect) {
+    feedbackEl.innerHTML = '<span class="success">✅ Correct!</span>';
+    gameState.scores[playerName] = (gameState.scores[playerName] || 0) + 1;
+  } else {
+    feedbackEl.innerHTML = '<span class="wrong">❌ Wrong! The correct answer was: ' + questions[currentQuestionIndex].choices[correctIndex] + '</span>';
+  }
+  
+  saveGameState();
+  updateStudentDisplay();
+  
+  // Show waiting message
+  setTimeout(() => {
+    if (gameState.state === "quiz") {
+      feedbackEl.innerHTML += '<br><em>Waiting for teacher to continue...</em>';
+    }
+  }, 2000);
+}
+
+function showResults() {
+  questionContainer.innerHTML = "<h2>Quiz Finished! 🎉</h2>";
+  const finalScore = gameState.scores[playerName] || 0;
+  const totalQuestions = questions.length;
+  const percentage = Math.round((finalScore / totalQuestions) * 100);
+  
+  let message = `<p>Your final score: ${finalScore}/${totalQuestions} (${percentage}%)</p>`;
+  
+  if (percentage >= 80) {
+    message += "<p>🌟 Excellent work!</p>";
+  } else if (percentage >= 60) {
+    message += "<p>👍 Good job!</p>";
+  } else {
+    message += "<p>📚 Keep practicing!</p>";
+  }
+  
+  feedbackEl.innerHTML = message;
+}
+
+// Error handling
+window.addEventListener('error', (event) => {
+  console.error('Error:', event.error);
+  if (role === "teacher") {
+    teacherStatus.innerHTML = '<div class="error">Error: ' + event.error.message + '</div>';
+  } else if (role === "student") {
+    feedbackEl.innerHTML = '<div class="error">Error: ' + event.error.message + '</div>';
+  }
+});
+
+</script>
+
+</body>
+</html>
