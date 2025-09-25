@@ -4,147 +4,169 @@
 <meta charset="UTF-8">
 <title>ESL Quiz with Team Minigame</title>
 <style>
-  body { 
-    font-family: sans-serif; 
-    padding: 20px; 
-    text-align: center; 
-    max-width: 800px; 
-    margin: 0 auto; 
-  }
-  #teacherView, #studentView, #minigameView { display: none; }
-  .choice { 
-    padding: 10px 20px; 
-    margin: 5px; 
-    cursor: pointer; 
-    display: block; 
-    margin: 5px auto; 
-    background-color: #f0f0f0;
-    border: 2px solid #ccc;
-    border-radius: 5px;
-    min-width: 200px;
-    color: #333;
-  }
-  .choice:hover {
-    background-color: #e0e0e0;
-  }
-  .choice:disabled { 
-    background-color: #ddd; 
-    cursor: default; 
-  }
-  button {
-    padding: 10px 20px;
-    margin: 10px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-  }
-  button:hover {
-    background-color: #0056b3;
-  }
-  #feedback {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 20px 0;
-    min-height: 30px;
-  }
-  .error {
-    color: red;
-    background-color: #ffe6e6;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 10px 0;
-  }
-  .success {
-    color: green;
-  }
-  .warning {
-    color: orange;
-  }
-  .wrong {
-    color: red;
-  }
-  #playersList {
-    text-align: left;
-    background-color: #f9f9f9;
-    padding: 15px;
-    border-radius: 5px;
-    margin: 10px 0;
-  }
-  .connection-status {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    padding: 5px 10px;
-    border-radius: 15px;
-    font-size: 12px;
-    font-weight: bold;
-  }
-  .connected {
-    background-color: #d4edda;
-    color: #155724;
-  }
-  .disconnected {
-    background-color: #f8d7da;
-    color: #721c24;
-  }
-  
-  /* Minigame Styles */
-  .switch {
-    display: inline-block;
-    margin: 10px;
-    padding: 20px 30px;
-    background: #4CAF50;
-    color: white;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 20px;
-    transition: all 0.3s;
-    border: none;
-    min-width: 120px;
-  }
-  .switch:hover {
-    background: #45a049;
-    transform: scale(1.05);
-  }
-  .switch:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-  .team-info {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 10px 0;
-    border-left: 5px solid #007bff;
-  }
-  .team-eliminated {
-    background: #f8d7da;
-    border-left-color: #dc3545;
-    opacity: 0.7;
-  }
-  .team-winner {
-    background: #d4edda;
-    border-left-color: #28a745;
-  }
-  .representative {
-    font-weight: bold;
-    color: #007bff;
-  }
-  .exploded {
-    background-color: #dc3545 !important;
-    animation: shake 0.5s;
-  }
-  .safe {
-    background-color: #ffc107 !important;
-  }
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
-  }
+/* ===== Body & Theme ===== */
+body { 
+  font-family: "Comic Sans MS", Arial, sans-serif; 
+  padding: 20px; 
+  text-align: center; 
+  max-width: 800px; 
+  margin: 0 auto; 
+  background: linear-gradient(135deg, #74b9ff, #a29bfe);
+  color: #2d3436;
+}
+
+/* ===== Connection Status ===== */
+.connection-status {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: bold;
+}
+.connected { background-color: #d4edda; color: #155724; }
+.disconnected { background-color: #f8d7da; color: #721c24; }
+
+/* ===== Header ===== */
+h1 {
+  background: #6c5ce7;
+  color: white;
+  padding: 20px;
+  border-radius: 0 0 20px 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  margin-bottom: 20px;
+}
+
+/* ===== Views ===== */
+#teacherView, #studentView, #minigameView { display: none; }
+
+/* ===== Buttons ===== */
+button {
+  padding: 10px 20px;
+  margin: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: transform 0.2s, background 0.2s;
+}
+button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+button:disabled { background-color: #b2bec3; cursor: not-allowed; }
+
+/* ===== Choices ===== */
+.choice { 
+  padding: 10px 20px; 
+  margin: 5px auto; 
+  cursor: pointer; 
+  display: block; 
+  background-color: #f0f0f0;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  min-width: 200px;
+  color: #333;
+  transition: all 0.2s;
+}
+.choice:hover { background-color: #e0e0e0; transform: scale(1.03); }
+.choice:disabled { background-color: #ddd; cursor: default; }
+
+/* ===== Feedback ===== */
+#feedback, #minigameFeedback {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 20px 0;
+  min-height: 30px;
+  animation: pop 0.4s ease;
+}
+@keyframes pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== Error / Success / Warning ===== */
+.error { 
+  color: red; 
+  background-color: #ffe6e6; 
+  padding: 10px; 
+  border-radius: 5px; 
+  margin: 10px 0; 
+}
+.success { color: green; }
+.warning { color: orange; }
+.wrong { color: red; }
+
+/* ===== Players List ===== */
+#playersList {
+  text-align: left;
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 10px 0;
+  border-left: 5px solid #007bff;
+}
+
+/* ===== Minigame Styles ===== */
+.switch {
+  display: inline-block;
+  margin: 10px;
+  padding: 20px 30px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 15px;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.3s;
+  border: none;
+  min-width: 120px;
+}
+.switch:hover { background: #45a049; transform: scale(1.05); }
+.switch:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.team-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 10px 0;
+  border-left: 5px solid #007bff;
+}
+.team-eliminated { background: #f8d7da; border-left-color: #dc3545; opacity: 0.7; }
+.team-winner { background: #d4edda; border-left-color: #28a745; }
+
+.representative { font-weight: bold; color: #007bff; }
+.exploded { background-color: #dc3545 !important; animation: shake 0.5s; }
+.safe { background-color: #ffc107 !important; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ===== Inputs ===== */
+input[type="text"], input[type="number"], input[type="password"] {
+  padding: 10px;
+  font-size: 1.1em;
+  border-radius: 8px;
+  border: 2px solid #0984e3;
+  margin: 8px;
+}
+
+/* ===== Team Info Card Enhancements ===== */
+.team-info {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* ===== Footer / Misc ===== */
+footer {
+  margin-top: 20px;
+  color: #636e72;
+  font-size: 0.9em;
+}
 </style>
 </head>
 <body>
