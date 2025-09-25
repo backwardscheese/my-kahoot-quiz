@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ESL Quiz Game</title>
+<title>ESL Quiz with Team Minigame</title>
 <style>
   body { 
     font-family: sans-serif; 
     padding: 20px; 
     text-align: center; 
-    max-width: 600px; 
+    max-width: 800px; 
     margin: 0 auto; 
   }
-  #teacherView, #studentView { display: none; }
+  #teacherView, #studentView, #minigameView { display: none; }
   .choice { 
     padding: 10px 20px; 
     margin: 5px; 
@@ -22,6 +22,7 @@
     border: 2px solid #ccc;
     border-radius: 5px;
     min-width: 200px;
+    color: #333;
   }
   .choice:hover {
     background-color: #e0e0e0;
@@ -59,6 +60,9 @@
   .success {
     color: green;
   }
+  .warning {
+    color: orange;
+  }
   .wrong {
     color: red;
   }
@@ -69,26 +73,114 @@
     border-radius: 5px;
     margin: 10px 0;
   }
+  .connection-status {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .connected {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  .disconnected {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  /* Minigame Styles */
+  .switch {
+    display: inline-block;
+    margin: 10px;
+    padding: 20px 30px;
+    background: #4CAF50;
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 20px;
+    transition: all 0.3s;
+    border: none;
+    min-width: 120px;
+  }
+  .switch:hover {
+    background: #45a049;
+    transform: scale(1.05);
+  }
+  .switch:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .team-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 10px 0;
+    border-left: 5px solid #007bff;
+  }
+  .team-eliminated {
+    background: #f8d7da;
+    border-left-color: #dc3545;
+    opacity: 0.7;
+  }
+  .team-winner {
+    background: #d4edda;
+    border-left-color: #28a745;
+  }
+  .representative {
+    font-weight: bold;
+    color: #007bff;
+  }
+  .exploded {
+    background-color: #dc3545 !important;
+    animation: shake 0.5s;
+  }
+  .safe {
+    background-color: #ffc107 !important;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
 </style>
 </head>
 <body>
 
-<h1>ESL Quiz Game</h1>
+<div class="connection-status" id="connectionStatus">Connecting...</div>
 
+<h1>ESL Quiz with Team Minigame</h1>
+
+<!-- Lobby -->
 <div id="lobby">
   <p>Are you the teacher or a student?</p>
   <button id="teacherBtn">Teacher</button>
   <button id="studentBtn">Student</button>
+  <div id="connectionError" class="error" style="display: none;"></div>
+
+  <!-- Password input for teacher -->
+  <div id="teacherPasswordBox" style="display:none; margin-top:10px;">
+    <input type="password" id="teacherPassword" placeholder="Enter teacher password" />
+    <button id="teacherLoginBtn">Login</button>
+    <div id="teacherPasswordError" class="error" style="display:none;"></div>
+  </div>
 </div>
+
 
 <div id="teacherView">
   <h2>Teacher Control Panel</h2>
   <button id="startBtn">Start New Quiz</button>
   <button id="nextBtn" style="display: none;">Next Question</button>
   <button id="endBtn" style="display: none;">End Quiz</button>
+  <button id="startMinigameBtn" style="display: none;">Start Minigame</button>
+  <button id="nextRoundBtn" style="display: none;">Next Round</button>
+  <button id="resetBtn" style="display: none;">Reset Game</button>
   <div id="teacherStatus"></div>
   <div id="playersList"></div>
   <div id="currentQuestionDisplay"></div>
+  <div id="teamsDisplay"></div>
 </div>
 
 <div id="studentView">
@@ -99,30 +191,106 @@
   <div id="scoreDisplay"></div>
 </div>
 
+<div id="minigameView">
+  <h2>🎮 Team Minigame: Exploding Switches</h2>
+  <div id="minigameStatus"></div>
+  <div id="teamsInfo"></div>
+  <div id="switchContainer"></div>
+  <div id="minigameFeedback"></div>
+</div>
+
 <script type="module">
-// Use a simpler in-memory approach instead of Firebase for testing
-let gameState = {
-  state: "lobby", // lobby, quiz, results
-  currentQuestion: 0,
-  scores: {},
-  players: []
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, set, update, runTransaction, onValue, off, onDisconnect, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+// ===== Firebase Configuration =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAwCGVcbFrNIcRtbltP8ENl4Z77IsmzoSo",
+  authDomain: "esl-quiz.firebaseapp.com",
+  databaseURL: "https://esl-quiz-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "esl-quiz",
+  storageBucket: "esl-quiz.firebasestorage.app",
+  messagingSenderId: "999634500142",
+  appId: "1:999634500142:web:17b206cfaa5a2f6212bdbf"
 };
 
-// Simulate Firebase-like behavior with localStorage for persistence
-function saveGameState() {
-  localStorage.setItem('eslQuizGame', JSON.stringify(gameState));
+let app, db;
+let connectionStatus = false;
+let initializationComplete = false;
+
+try {
+  app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+  console.log("Firebase initialized successfully");
+  
+  initializationComplete = true;
+  
+  const connectedRef = ref(db, ".info/connected");
+  onValue(connectedRef, (snapshot) => {
+    connectionStatus = snapshot.val();
+    console.log("Connection status:", connectionStatus);
+    updateConnectionStatus();
+  }, (error) => {
+    console.error("Connection monitoring error:", error);
+    showConnectionError("Connection monitoring failed: " + error.message);
+    connectionStatus = false;
+    initializationComplete = true;
+    updateConnectionStatus();
+  });
+  
+} catch (error) {
+  console.error("Firebase initialization error:", error);
+  showConnectionError("Failed to initialize Firebase: " + error.message);
+  initializationComplete = true;
+  updateConnectionStatus();
 }
 
-function loadGameState() {
-  const saved = localStorage.getItem('eslQuizGame');
-  if (saved) {
-    gameState = JSON.parse(saved);
+// Force initialization after timeout
+setTimeout(() => {
+  if (!initializationComplete) {
+    console.log("Forcing initialization completion after timeout");
+    initializationComplete = true;
+    updateConnectionStatus();
+  }
+}, 3000);
+
+function updateConnectionStatus() {
+  const statusEl = document.getElementById("connectionStatus");
+  const teacherBtn = document.getElementById("teacherBtn");
+  const studentBtn = document.getElementById("studentBtn");
+  const connectionError = document.getElementById("connectionError");
+  
+  if (!initializationComplete) {
+    statusEl.textContent = "🔄 Initializing...";
+    statusEl.className = "connection-status disconnected";
+    teacherBtn.disabled = true;
+    studentBtn.disabled = true;
+    return;
+  }
+  
+  if (connectionStatus) {
+    statusEl.textContent = "🟢 Connected";
+    statusEl.className = "connection-status connected";
+    connectionError.style.display = "none";
+    teacherBtn.disabled = false;
+    studentBtn.disabled = false;
+  } else {
+    statusEl.textContent = "🟡 Offline Mode";
+    statusEl.className = "connection-status disconnected";
+    connectionError.innerHTML = "⚠️ Firebase offline - using local mode for testing";
+    connectionError.style.display = "block";
+    connectionError.style.backgroundColor = "#fff3cd";
+    connectionError.style.color = "#856404";
+    teacherBtn.disabled = false;
+    studentBtn.disabled = false;
   }
 }
 
-function broadcastStateChange() {
-  // Simulate real-time updates by triggering events
-  window.dispatchEvent(new CustomEvent('gameStateChanged', { detail: gameState }));
+function showConnectionError(message) {
+  const errorEl = document.getElementById("connectionError");
+  errorEl.textContent = message;
+  errorEl.style.display = "block";
+  console.error("Connection error:", message);
 }
 
 // Questions
@@ -138,9 +306,13 @@ const questions = [
 const lobby = document.getElementById("lobby");
 const teacherView = document.getElementById("teacherView");
 const studentView = document.getElementById("studentView");
+const minigameView = document.getElementById("minigameView");
 const startBtn = document.getElementById("startBtn");
 const nextBtn = document.getElementById("nextBtn");
 const endBtn = document.getElementById("endBtn");
+const startMinigameBtn = document.getElementById("startMinigameBtn");
+const nextRoundBtn = document.getElementById("nextRoundBtn");
+const resetBtn = document.getElementById("resetBtn");
 const teacherStatus = document.getElementById("teacherStatus");
 const questionContainer = document.getElementById("questionContainer");
 const feedbackEl = document.getElementById("feedback");
@@ -149,102 +321,172 @@ const waitingMessage = document.getElementById("waitingMessage");
 const scoreDisplay = document.getElementById("scoreDisplay");
 const playersList = document.getElementById("playersList");
 const currentQuestionDisplay = document.getElementById("currentQuestionDisplay");
+const teamsDisplay = document.getElementById("teamsDisplay");
+const TEACHER_PASSWORD = "00000";
+
+// Minigame elements
+const minigameStatus = document.getElementById("minigameStatus");
+const teamsInfo = document.getElementById("teamsInfo");
+const switchContainer = document.getElementById("switchContainer");
+const minigameFeedback = document.getElementById("minigameFeedback");
 
 // State
 let role = null;
 let playerName = "";
 let currentQuestionIndex = 0;
 let questionAnswered = false;
+let gameListeners = [];
+let currentView = "lobby";
 
-// Load saved state on page load
-loadGameState();
+const GAME_ROOM = "game1";
 
-// ===== Role selection =====
-document.getElementById("teacherBtn").onclick = () => selectRole("teacher");
-document.getElementById("studentBtn").onclick = () => selectRole("student");
+// ===== Utility Functions =====
+function safeFirebaseOperation(operation, errorMessage) {
+  if (!connectionStatus) {
+    throw new Error("Not connected to database");
+  }
+  return operation().catch(error => {
+    console.error(errorMessage, error);
+    throw new Error(`${errorMessage}: ${error.message}`);
+  });
+}
 
-function selectRole(r) {
-  role = r;
+function cleanupListeners() {
+  gameListeners.forEach(({ ref: dbRef, callback }) => {
+    off(dbRef, 'value', callback);
+  });
+  gameListeners = [];
+}
+
+function createTeams(players, scores) {
+  const playerList = Object.keys(players).filter(name => players[name].online);
+  const playerScores = playerList.map(name => ({
+    name,
+    score: scores[name] || 0
+  })).sort((a, b) => b.score - a.score);
+
+  const teams = [
+    { name: "Team Alpha", members: [], eliminated: false, color: "#007bff" },
+    { name: "Team Beta", members: [], eliminated: false, color: "#28a745" },
+    { name: "Team Gamma", members: [], eliminated: false, color: "#dc3545" },
+    { name: "Team Delta", members: [], eliminated: false, color: "#ffc107" }
+  ];
+
+  playerScores.forEach((player, index) => {
+    const teamIndex = Math.floor(index / Math.ceil(playerScores.length / 4)) % 4;
+    teams[teamIndex].members.push(player.name);
+  });
+
+  return teams.filter(team => team.members.length > 0);
+}
+
+function selectRandomRepresentative(teamMembers, players) {
+  const onlineMembers = teamMembers.filter(member => players[member]?.online);
+  if (onlineMembers.length === 0) return null;
+  return onlineMembers[Math.floor(Math.random() * onlineMembers.length)];
+}
+
+// ===== View Management =====
+function showView(viewName) {
   lobby.style.display = "none";
-  if (role === "teacher") {
-    teacherView.style.display = "block";
-    setupTeacher();
-  } else {
-    studentView.style.display = "block";
-    setupStudent();
+  teacherView.style.display = "none";
+  studentView.style.display = "none";
+  minigameView.style.display = "none";
+  
+  currentView = viewName;
+  switch(viewName) {
+    case "teacher":
+      teacherView.style.display = "block";
+      break;
+    case "student":
+      studentView.style.display = "block";
+      break;
+    case "minigame":
+      minigameView.style.display = "block";
+      break;
+    default:
+      lobby.style.display = "block";
   }
 }
 
-// ===== Teacher Functions =====
-function setupTeacher() {
-  updateTeacherDisplay();
+// ===== Role Selection =====
+document.getElementById("teacherBtn").onclick = () => selectRole("teacher");
+document.getElementById("studentBtn").onclick = () => selectRole("student");
+
+async function selectRole(r) {
+  console.log("Role selected:", r, "Init complete:", initializationComplete, "Connection:", connectionStatus);
+  
+  if (!initializationComplete) {
+    showConnectionError("System still initializing. Please wait a moment and try again.");
+    return;
+  }
+  
+  role = r;
+  
+  try {
+    if (role === "teacher") {
+      showView("teacher");
+      if (connectionStatus) {
+        await setupTeacher();
+      } else {
+        setupTeacherOffline();
+      }
+    } else {
+      showView("student");
+      if (connectionStatus) {
+        await setupStudent();
+      } else {
+        setupStudentOffline();
+      }
+    }
+  } catch (error) {
+    console.error("Setup error:", error);
+    if (role === "teacher") {
+      teacherStatus.innerHTML = `<div class="error">Setup failed: ${error.message}<br><small>Try refreshing the page or check your Firebase configuration.</small></div>`;
+    } else {
+      feedbackEl.innerHTML = `<div class="error">Setup failed: ${error.message}<br><small>Try refreshing the page.</small></div>`;
+    }
+  }
+}
+
+// ===== Offline Functions =====
+function setupTeacherOffline() {
+  teacherStatus.innerHTML = '<div class="warning">⚠️ Running in offline mode - changes will not sync between users</div>';
   
   startBtn.onclick = () => {
-    try {
-      gameState = {
-        state: "quiz",
-        currentQuestion: 0,
-        scores: {},
-        players: []
-      };
-      currentQuestionIndex = 0;
-      saveGameState();
-      broadcastStateChange();
-      teacherStatus.innerHTML = '<div class="success">Quiz started! Question 1 of ' + questions.length + '</div>';
-      startBtn.style.display = "none";
-      nextBtn.style.display = "inline-block";
-      endBtn.style.display = "inline-block";
-      updateTeacherDisplay();
-    } catch (error) {
-      teacherStatus.innerHTML = '<div class="error">Error starting quiz: ' + error.message + '</div>';
-    }
+    teacherStatus.innerHTML = '<div class="success">Quiz started! (Offline mode)</div>';
+    currentQuestionIndex = 0;
+    startBtn.style.display = "none";
+    nextBtn.style.display = "inline-block";
+    endBtn.style.display = "inline-block";
+    resetBtn.style.display = "inline-block";
+    
+    showCurrentQuestion();
   };
 
   nextBtn.onclick = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      currentQuestionIndex++;
-      gameState.currentQuestion = currentQuestionIndex;
-      saveGameState();
-      broadcastStateChange();
-      teacherStatus.innerHTML = '<div class="success">Moved to question ' + (currentQuestionIndex + 1) + ' of ' + questions.length + '</div>';
-      updateTeacherDisplay();
+    currentQuestionIndex++;
+    if (currentQuestionIndex < questions.length) {
+      teacherStatus.innerHTML = `<div class="success">Question ${currentQuestionIndex + 1} of ${questions.length}</div>`;
+      showCurrentQuestion();
     } else {
-      endQuiz();
+      endQuizOffline();
     }
   };
 
   endBtn.onclick = () => {
-    endQuiz();
+    endQuizOffline();
+  };
+
+  resetBtn.onclick = () => {
+    teacherStatus.innerHTML = '<div class="success">Game reset! (Offline mode)</div>';
+    showQuizControls();
+    currentQuestionDisplay.innerHTML = '<p>No quiz in progress.</p>';
   };
 }
 
-function endQuiz() {
-  gameState.state = "results";
-  saveGameState();
-  broadcastStateChange();
-  teacherStatus.innerHTML = '<div class="success">Quiz ended! Final results shown to students.</div>';
-  nextBtn.style.display = "none";
-  endBtn.style.display = "none";
-  startBtn.style.display = "inline-block";
-  updateTeacherDisplay();
-}
-
-function updateTeacherDisplay() {
-  // Update players list
-  if (gameState.players && gameState.players.length > 0) {
-    let playersHtml = '<h3>Connected Players:</h3><ul>';
-    gameState.players.forEach(player => {
-      const score = gameState.scores[player] || 0;
-      playersHtml += `<li>${player}: ${score} points</li>`;
-    });
-    playersHtml += '</ul>';
-    playersList.innerHTML = playersHtml;
-  } else {
-    playersList.innerHTML = '<p>No players connected yet.</p>';
-  }
-
-  // Update current question display
-  if (gameState.state === "quiz" && questions[currentQuestionIndex]) {
+function showCurrentQuestion() {
+  if (questions[currentQuestionIndex]) {
     const q = questions[currentQuestionIndex];
     currentQuestionDisplay.innerHTML = `
       <h3>Current Question (${currentQuestionIndex + 1}/${questions.length}):</h3>
@@ -253,63 +495,502 @@ function updateTeacherDisplay() {
         ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: green; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✓' : ''}</li>`).join('')}
       </ul>
     `;
-  } else if (gameState.state === "results") {
-    currentQuestionDisplay.innerHTML = '<h3>Quiz Complete!</h3>';
+  }
+}
+
+function setupStudentOffline() {
+  playerName = prompt("Enter your name:") || "Player" + Math.floor(Math.random()*1000);
+  studentNameEl.textContent = "Welcome, " + playerName + "!";
+  feedbackEl.innerHTML = '<div class="warning">⚠️ Running in offline mode - this is just for testing the interface</div>';
+  
+  setTimeout(() => {
+    if (questions[0]) {
+      renderQuestionOffline(questions[0]);
+    }
+  }, 1000);
+}
+
+function renderQuestionOffline(q) {
+  questionContainer.innerHTML = `<h3>Sample Question: ${q.text}</h3>`;
+  feedbackEl.innerHTML = '<p>This is offline mode - click any answer to test</p>';
+  
+  q.choices.forEach((choice, i) => {
+    const btn = document.createElement("button");
+    btn.textContent = choice;
+    btn.className = "choice";
+    btn.onclick = () => {
+      const isCorrect = i === q.correct;
+      if (isCorrect) {
+        feedbackEl.innerHTML = '<span class="success">✅ Correct! (Offline test mode)</span>';
+      } else {
+        feedbackEl.innerHTML = `<span class="wrong">❌ Wrong! Correct answer: <strong>${q.choices[q.correct]}</strong> (Offline test mode)</span>`;
+      }
+    };
+    questionContainer.appendChild(btn);
+  });
+}
+
+function endQuizOffline() {
+  teacherStatus.innerHTML = '<div class="success">Quiz ended! (Offline mode)</div>';
+  nextBtn.style.display = "none";
+  endBtn.style.display = "none";
+  currentQuestionDisplay.innerHTML = '<h3>Quiz Complete! 🎉</h3><p>In online mode, this would lead to the team minigame.</p>';
+}
+
+function showQuizControls() {
+  startBtn.style.display = "inline-block";
+  nextBtn.style.display = "none";
+  endBtn.style.display = "none";
+  startMinigameBtn.style.display = "none";
+  nextRoundBtn.style.display = "none";
+  resetBtn.style.display = "none";
+}
+
+// ===== Teacher Functions =====
+async function setupTeacher() {
+  const teacherRef = ref(db, `${GAME_ROOM}/teacher`);
+  await set(teacherRef, { present: true, timestamp: Date.now() });
+  onDisconnect(teacherRef).remove();
+  
+  setupTeacherButtons();
+  watchGameState();
+  
+  const gameRef = ref(db, GAME_ROOM);
+  const snapshot = await get(gameRef);
+  if (snapshot.exists()) {
+    const data = snapshot.val();
+    updateTeacherDisplay(data);
+    
+    if (data.state === "minigame") {
+      showMinigameControls();
+    }
+  }
+}
+
+function setupTeacherButtons() {
+  startBtn.onclick = async () => {
+    try {
+      const gameRef = ref(db, GAME_ROOM);
+      const snapshot = await get(gameRef);
+      const existingData = snapshot.val() || {};
+      
+      await safeFirebaseOperation(async () => {
+        await set(ref(db, GAME_ROOM), {
+          state: "quiz",
+          currentQuestion: 0,
+          scores: existingData.scores || {},
+          players: existingData.players || {},
+          teacher: { present: true, timestamp: Date.now() }
+        });
+      }, "Failed to start quiz");
+      
+      currentQuestionIndex = 0;
+      teacherStatus.innerHTML = '<div class="success">Quiz started! Question 1 of ' + questions.length + '</div>';
+      startBtn.style.display = "none";
+      nextBtn.style.display = "inline-block";
+      endBtn.style.display = "inline-block";
+      resetBtn.style.display = "inline-block";
+    } catch (error) {
+      teacherStatus.innerHTML = `<div class="error">Error starting quiz: ${error.message}</div>`;
+    }
+  };
+
+  nextBtn.onclick = async () => {
+    try {
+      const gameRef = ref(db, GAME_ROOM);
+      const nextQuestion = currentQuestionIndex + 1;
+      
+      if (nextQuestion < questions.length) {
+        await safeFirebaseOperation(async () => {
+          await update(gameRef, { currentQuestion: nextQuestion });
+        }, "Failed to advance question");
+        
+        teacherStatus.innerHTML = `<div class="success">Moved to question ${nextQuestion + 1} of ${questions.length}</div>`;
+      } else {
+        await endQuiz();
+      }
+    } catch (error) {
+      teacherStatus.innerHTML = `<div class="error">Error advancing question: ${error.message}</div>`;
+    }
+  };
+
+  endBtn.onclick = async () => {
+    await endQuiz();
+  };
+
+  startMinigameBtn.onclick = async () => {
+    await startMinigame();
+  };
+
+  nextRoundBtn.onclick = async () => {
+    await nextMinigameRound();
+  };
+
+  resetBtn.onclick = async () => {
+    try {
+      await safeFirebaseOperation(async () => {
+        await set(ref(db, GAME_ROOM), {
+          state: "lobby",
+          teacher: { present: true, timestamp: Date.now() }
+        });
+      }, "Failed to reset game");
+      
+      teacherStatus.innerHTML = '<div class="success">Game reset! Students can join again.</div>';
+      showQuizControls();
+    } catch (error) {
+      teacherStatus.innerHTML = `<div class="error">Error resetting game: ${error.message}</div>`;
+    }
+  };
+}
+
+function showMinigameControls() {
+  startBtn.style.display = "none";
+  nextBtn.style.display = "none";
+  endBtn.style.display = "none";
+  startMinigameBtn.style.display = "none";
+  nextRoundBtn.style.display = "inline-block";
+  resetBtn.style.display = "inline-block";
+}
+
+async function endQuiz() {
+  try {
+    await safeFirebaseOperation(async () => {
+      await update(ref(db, GAME_ROOM), { state: "results" });
+    }, "Failed to end quiz");
+    
+    teacherStatus.innerHTML = '<div class="success">Quiz ended! Ready to start minigame.</div>';
+    nextBtn.style.display = "none";
+    endBtn.style.display = "none";
+    startMinigameBtn.style.display = "inline-block";
+  } catch (error) {
+    teacherStatus.innerHTML = `<div class="error">Error ending quiz: ${error.message}</div>`;
+  }
+}
+
+async function startMinigame() {
+  try {
+    const gameRef = ref(db, GAME_ROOM);
+    const snapshot = await get(gameRef);
+    const data = snapshot.val();
+    
+    if (!data || !data.players || !data.scores) {
+      throw new Error("No game data found");
+    }
+    
+    const teams = createTeams(data.players, data.scores);
+    const aliveTeams = teams.filter(team => !team.eliminated);
+    const totalSwitches = aliveTeams.length + 2;
+    const bombIndex = Math.floor(Math.random() * totalSwitches);
+    
+    await safeFirebaseOperation(async () => {
+      await update(gameRef, { 
+        state: "minigame",
+        teams: teams,
+        minigameRound: 1,
+        totalSwitches: totalSwitches,
+        bombIndex: bombIndex,
+        teamChoices: {},
+        roundPhase: "choosing",
+        revealStartTime: null
+      });
+    }, "Failed to start minigame");
+    
+    teacherStatus.innerHTML = '<div class="success">Minigame started! Teams choose switches simultaneously.</div>';
+    showMinigameControls();
+  } catch (error) {
+    teacherStatus.innerHTML = `<div class="error">Error starting minigame: ${error.message}</div>`;
+  }
+}
+
+async function nextMinigameRound() {
+  try {
+    const gameRef = ref(db, GAME_ROOM);
+    const snapshot = await get(gameRef);
+    const data = snapshot.val();
+    
+    if (!data || !data.teams) {
+      throw new Error("No minigame data found");
+    }
+    
+    const aliveTeams = data.teams.filter(team => !team.eliminated);
+    if (aliveTeams.length <= 1) {
+      teacherStatus.innerHTML = '<div class="warning">Game is already finished!</div>';
+      return;
+    }
+    
+    if (data.roundPhase === "choosing") {
+      const teamChoices = data.teamChoices || {};
+      const teamsWithChoices = Object.keys(teamChoices).length;
+      const aliveTeamsCount = aliveTeams.length;
+      
+      if (teamsWithChoices >= aliveTeamsCount) {
+        await safeFirebaseOperation(async () => {
+          await update(gameRef, {
+            roundPhase: "reveal",
+            revealStartTime: Date.now()
+          });
+        }, "Failed to start reveal");
+        
+        teacherStatus.innerHTML = '<div class="success">Revealing results...</div>';
+        
+        setTimeout(async () => {
+          await processRoundResults();
+        }, 3000);
+        
+      } else {
+        teacherStatus.innerHTML = `<div class="warning">Waiting for ${aliveTeamsCount - teamsWithChoices} more teams to choose...</div>`;
+      }
+    } else if (data.roundPhase === "reveal" || data.roundPhase === "results") {
+      await startNewRound();
+    }
+  } catch (error) {
+    teacherStatus.innerHTML = `<div class="error">Error managing round: ${error.message}</div>`;
+  }
+}
+
+async function startNewRound() {
+  try {
+    const gameRef = ref(db, GAME_ROOM);
+    const snapshot = await get(gameRef);
+    const data = snapshot.val();
+    
+    const aliveTeams = data.teams.filter(team => !team.eliminated);
+    const totalSwitches = aliveTeams.length + 2;
+    const bombIndex = Math.floor(Math.random() * totalSwitches);
+    
+    await safeFirebaseOperation(async () => {
+      await update(gameRef, {
+        totalSwitches: totalSwitches,
+        bombIndex: bombIndex,
+        teamChoices: {},
+        minigameRound: (data.minigameRound || 1) + 1,
+        roundPhase: "choosing",
+        revealStartTime: null
+      });
+    }, "Failed to start new round");
+    
+    teacherStatus.innerHTML = '<div class="success">New round started!</div>';
+  } catch (error) {
+    teacherStatus.innerHTML = `<div class="error">Error starting new round: ${error.message}</div>`;
+  }
+}
+
+async function processRoundResults() {
+  try {
+    const gameRef = ref(db, GAME_ROOM);
+    const snapshot = await get(gameRef);
+    const data = snapshot.val();
+    
+    if (!data || !data.teamChoices) return;
+    
+    const eliminatedTeamIndexes = [];
+    Object.entries(data.teamChoices).forEach(([teamIndex, choice]) => {
+      if (choice.switchIndex === data.bombIndex) {
+        eliminatedTeamIndexes.push(parseInt(teamIndex));
+      }
+    });
+    
+    const updatedTeams = [...data.teams];
+    eliminatedTeamIndexes.forEach(teamIndex => {
+      updatedTeams[teamIndex].eliminated = true;
+    });
+    
+    await safeFirebaseOperation(async () => {
+      await update(gameRef, {
+        teams: updatedTeams,
+        roundPhase: "results"
+      });
+    }, "Failed to update elimination results");
+    
+    if (eliminatedTeamIndexes.length > 0) {
+      const eliminatedNames = eliminatedTeamIndexes.map(i => data.teams[i].name).join(', ');
+      teacherStatus.innerHTML = `<div class="warning">${eliminatedNames} eliminated! Click "Next Round" to continue.</div>`;
+    } else {
+      teacherStatus.innerHTML = '<div class="success">All teams survived! Click "Next Round" to continue.</div>';
+    }
+    
+  } catch (error) {
+    teacherStatus.innerHTML = `<div class="error">Error processing results: ${error.message}</div>`;
+  }
+}
+
+function watchGameState() {
+  const gameRef = ref(db, GAME_ROOM);
+  const callback = (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      currentQuestionIndex = data.currentQuestion || 0;
+      updateTeacherDisplay(data);
+      
+      if (data.state === "minigame" && currentView !== "minigame") {
+        updateMinigameDisplay(data);
+      }
+    }
+  };
+  
+  onValue(gameRef, callback);
+  gameListeners.push({ ref: gameRef, callback });
+}
+
+function updateTeacherDisplay(data) {
+  if (data.players && Object.keys(data.players).length > 0) {
+    let playersHtml = '<h3>Connected Players:</h3><ul>';
+    Object.entries(data.players).forEach(([player, info]) => {
+      const score = data.scores?.[player] || 0;
+      const status = info.online ? '🟢' : '🔴';
+      playersHtml += `<li>${status} ${player}: ${score} points</li>`;
+    });
+    playersHtml += '</ul>';
+    playersList.innerHTML = playersHtml;
+  } else {
+    playersList.innerHTML = '<p>No players connected yet.</p>';
+  }
+
+  if (data.state === "quiz" && questions[currentQuestionIndex]) {
+    const q = questions[currentQuestionIndex];
+    currentQuestionDisplay.innerHTML = `
+      <h3>Current Question (${currentQuestionIndex + 1}/${questions.length}):</h3>
+      <p><strong>${q.text}</strong></p>
+      <ul style="text-align: left;">
+        ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: green; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✓' : ''}</li>`).join('')}
+      </ul>
+    `;
+  } else if (data.state === "results") {
+    currentQuestionDisplay.innerHTML = '<h3>Quiz Complete! 🎉</h3>';
+  } else if (data.state === "minigame") {
+    currentQuestionDisplay.innerHTML = '';
+    updateTeamsDisplay(data);
   } else {
     currentQuestionDisplay.innerHTML = '<p>No quiz in progress.</p>';
   }
 }
 
+function updateTeamsDisplay(data) {
+  if (!data.teams) return;
+  
+  let teamsHtml = '<h3>Teams:</h3>';
+  data.teams.forEach((team, index) => {
+    const teamClass = team.eliminated ? 'team-eliminated' : '';
+    
+    teamsHtml += `
+      <div class="team-info ${teamClass}" style="border-left-color: ${team.color}">
+        <h4>${team.name} ${team.eliminated ? '💀' : ''}</h4>
+        <p>Members: ${team.members.join(', ')}</p>
+      </div>
+    `;
+  });
+  
+  teamsDisplay.innerHTML = teamsHtml;
+}
+
+function updateMinigameDisplay(data) {
+  if (!data.teams) return;
+  
+  updateTeamsDisplay(data);
+  
+  const aliveTeams = data.teams.filter(t => !t.eliminated);
+  if (aliveTeams.length === 1) {
+    teacherStatus.innerHTML = `<div class="success">🎉 ${aliveTeams[0].name} wins the minigame!</div>`;
+    return;
+  }
+
+  const teamChoices = data.teamChoices || {};
+  const choicesMade = Object.keys(teamChoices).length;
+  const totalAliveTeams = aliveTeams.length;
+  
+  if (data.roundPhase === "choosing") {
+    if (choicesMade === 0) {
+      teacherStatus.innerHTML = `<div class="warning">Round ${data.minigameRound || 1}: Teams are choosing switches...</div>`;
+    } else if (choicesMade < totalAliveTeams) {
+      teacherStatus.innerHTML = `<div class="warning">Round ${data.minigameRound || 1}: ${choicesMade}/${totalAliveTeams} teams have chosen. Click "Next Round" when ready to reveal.</div>`;
+    } else {
+      teacherStatus.innerHTML = `<div class="success">All teams have chosen! Click "Next Round" to reveal results.</div>`;
+    }
+  } else if (data.roundPhase === "reveal") {
+    teacherStatus.innerHTML = `<div class="warning">🎭 Revealing results...</div>`;
+  } else if (data.roundPhase === "results") {
+    let eliminatedTeams = [];
+    Object.entries(teamChoices).forEach(([teamIndex, choice]) => {
+      if (choice.switchIndex === data.bombIndex) {
+        eliminatedTeams.push(data.teams[parseInt(teamIndex)].name);
+      }
+    });
+    
+    if (eliminatedTeams.length > 0) {
+      teacherStatus.innerHTML = `<div class="error">💥 ${eliminatedTeams.join(', ')} eliminated! Click "Next Round" for new round.</div>`;
+    } else {
+      teacherStatus.innerHTML = `<div class="success">✅ All teams survived! Click "Next Round" for new round.</div>`;
+    }
+  }
+}
+
 // ===== Student Functions =====
-function setupStudent() {
+async function setupStudent() {
   playerName = prompt("Enter your name:") || "Player" + Math.floor(Math.random()*1000);
   studentNameEl.textContent = "Welcome, " + playerName + "!";
   
-  // Add player to game
-  if (!gameState.players.includes(playerName)) {
-    gameState.players.push(playerName);
-    gameState.scores[playerName] = 0;
-    saveGameState();
-    broadcastStateChange();
+  try {
+    const playerRef = ref(db, `${GAME_ROOM}/players/${playerName}`);
+    await safeFirebaseOperation(async () => {
+      await set(playerRef, { online: true, joinedAt: Date.now() });
+      await set(ref(db, `${GAME_ROOM}/scores/${playerName}`), 0);
+    }, "Failed to join game");
+    
+    onDisconnect(playerRef).update({ online: false });
+    watchStudentGameState();
+    
+  } catch (error) {
+    feedbackEl.innerHTML = `<div class="error">Failed to join game: ${error.message}</div>`;
   }
-  
-  updateStudentDisplay();
+}
 
-  // Listen for game state changes
-  window.addEventListener('gameStateChanged', (event) => {
-    const data = event.detail;
-    if (!data) return;
+function watchStudentGameState() {
+  const gameRef = ref(db, GAME_ROOM);
+  const callback = (snapshot) => {
+    const data = snapshot.val();
+    if (!data) {
+      waitingMessage.innerHTML = "Waiting for teacher to set up the game...";
+      waitingMessage.style.display = "block";
+      return;
+    }
 
     if (data.state === "quiz") {
+      if (currentView !== "student") showView("student");
+      
       waitingMessage.style.display = "none";
-      if (data.currentQuestion !== currentQuestionIndex) {
+      
+      if (data.currentQuestion !== currentQuestionIndex || !questionAnswered) {
         currentQuestionIndex = data.currentQuestion;
         if (questions[currentQuestionIndex]) {
           renderQuestion(questions[currentQuestionIndex]);
         }
       }
     } else if (data.state === "results") {
-      showResults();
+      showQuizResults(data);
+    } else if (data.state === "minigame") {
+      if (currentView !== "minigame") showView("minigame");
+      updateStudentMinigameView(data);
     } else {
+      if (currentView !== "student") showView("student");
       waitingMessage.style.display = "block";
+      waitingMessage.innerHTML = "Waiting for teacher to start the quiz...";
       questionContainer.innerHTML = "";
       feedbackEl.textContent = "";
     }
     
-    updateStudentDisplay();
-  });
-
-  // Check initial state
-  if (gameState.state === "quiz" && questions[gameState.currentQuestion]) {
-    waitingMessage.style.display = "none";
-    currentQuestionIndex = gameState.currentQuestion;
-    renderQuestion(questions[currentQuestionIndex]);
-  }
+    updateStudentDisplay(data);
+  };
+  
+  onValue(gameRef, callback);
+  gameListeners.push({ ref: gameRef, callback });
 }
 
-function updateStudentDisplay() {
-  const score = gameState.scores[playerName] || 0;
-  scoreDisplay.innerHTML = `<p>Your Score: ${score}/${currentQuestionIndex + 1}</p>`;
+function updateStudentDisplay(data) {
+  if (currentView === "student" && data && data.scores) {
+    const score = data.scores[playerName] || 0;
+    const totalAnswered = Math.min(currentQuestionIndex + (questionAnswered ? 1 : 0), questions.length);
+    scoreDisplay.innerHTML = `<p>Your Score: ${score}/${totalAnswered}</p>`;
+  }
 }
 
 function renderQuestion(q) {
@@ -326,41 +1007,45 @@ function renderQuestion(q) {
     btn.onclick = () => handleAnswer(i, q.correct);
     questionContainer.appendChild(btn);
   });
-  
-  updateStudentDisplay();
 }
 
-function handleAnswer(choiceIndex, correctIndex) {
+async function handleAnswer(choiceIndex, correctIndex) {
   if (questionAnswered) return;
   questionAnswered = true;
 
-  // Disable all buttons
   const buttons = questionContainer.querySelectorAll('.choice');
   buttons.forEach(btn => btn.disabled = true);
 
   const isCorrect = choiceIndex === correctIndex;
   
-  if (isCorrect) {
-    feedbackEl.innerHTML = '<span class="success">✅ Correct!</span>';
-    gameState.scores[playerName] = (gameState.scores[playerName] || 0) + 1;
-  } else {
-    feedbackEl.innerHTML = '<span class="wrong">❌ Wrong! The correct answer was: ' + questions[currentQuestionIndex].choices[correctIndex] + '</span>';
-  }
-  
-  saveGameState();
-  updateStudentDisplay();
-  
-  // Show waiting message
-  setTimeout(() => {
-    if (gameState.state === "quiz") {
-      feedbackEl.innerHTML += '<br><em>Waiting for teacher to continue...</em>';
+  try {
+    await safeFirebaseOperation(async () => {
+      const scoreRef = ref(db, `${GAME_ROOM}/scores/${playerName}`);
+      await runTransaction(scoreRef, (currentScore) => {
+        return (currentScore || 0) + (isCorrect ? 1 : 0);
+      });
+    }, "Failed to update score");
+
+    if (isCorrect) {
+      feedbackEl.innerHTML = '<span class="success">✅ Correct! Well done!</span>';
+    } else {
+      feedbackEl.innerHTML = `<span class="wrong">❌ Wrong! The correct answer was: <strong>${questions[currentQuestionIndex].choices[correctIndex]}</strong></span>`;
     }
-  }, 2000);
+    
+    setTimeout(() => {
+      if (currentQuestionIndex < questions.length - 1) {
+        feedbackEl.innerHTML += '<br><em>Waiting for teacher to continue...</em>';
+      }
+    }, 2000);
+    
+  } catch (error) {
+    feedbackEl.innerHTML = `<div class="error">Error submitting answer: ${error.message}</div>`;
+  }
 }
 
-function showResults() {
+function showQuizResults(data) {
   questionContainer.innerHTML = "<h2>Quiz Finished! 🎉</h2>";
-  const finalScore = gameState.scores[playerName] || 0;
+  const finalScore = data.scores?.[playerName] || 0;
   const totalQuestions = questions.length;
   const percentage = Math.round((finalScore / totalQuestions) * 100);
   
@@ -374,20 +1059,255 @@ function showResults() {
     message += "<p>📚 Keep practicing!</p>";
   }
   
+  if (data.scores) {
+    const sortedScores = Object.entries(data.scores)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5);
+    
+    message += "<h3>Top Scores:</h3><ol>";
+    sortedScores.forEach(([name, score]) => {
+      const highlight = name === playerName ? ' style="background-color: #fff3cd;"' : '';
+      message += `<li${highlight}>${name}: ${score}/${totalQuestions}</li>`;
+    });
+    message += "</ol>";
+  }
+  
+  message += "<p><em>Get ready for the team minigame!</em></p>";
   feedbackEl.innerHTML = message;
 }
 
+function updateStudentMinigameView(data) {
+  if (!data.teams) return;
+  
+  let playerTeam = null;
+  let playerTeamIndex = -1;
+  for (let i = 0; i < data.teams.length; i++) {
+    if (data.teams[i].members.includes(playerName)) {
+      playerTeam = data.teams[i];
+      playerTeamIndex = i;
+      break;
+    }
+  }
+  
+  let teamsHtml = '<h3>Teams & Their Choices:</h3>';
+  const teamChoices = data.teamChoices || {};
+  
+  data.teams.forEach((team, index) => {
+    const isPlayerTeam = index === playerTeamIndex;
+    const hasChosen = teamChoices[index] !== undefined;
+    const teamClass = team.eliminated ? 'team-eliminated' : (isPlayerTeam ? 'team-winner' : '');
+    
+    let choiceInfo = '';
+    if (data.roundPhase === "reveal" || data.roundPhase === "results") {
+      if (hasChosen) {
+        const choice = teamChoices[index];
+        const isBomb = choice.switchIndex === data.bombIndex;
+        choiceInfo = `<p>Chose: Switch ${choice.switchIndex + 1} ${isBomb ? '💥' : '✅'}</p>`;
+      }
+    } else if (hasChosen) {
+      choiceInfo = '<p>✅ Choice made!</p>';
+    } else if (!team.eliminated) {
+      choiceInfo = '<p>⏳ Choosing...</p>';
+    }
+    
+    teamsHtml += `
+      <div class="team-info ${teamClass}" style="border-left-color: ${team.color}">
+        <h4>${team.name} ${team.eliminated ? '💀 Eliminated' : ''} ${isPlayerTeam ? '← Your Team' : ''}</h4>
+        <p>Members: ${team.members.join(', ')}</p>
+        ${choiceInfo}
+      </div>
+    `;
+  });
+  teamsInfo.innerHTML = teamsHtml;
+  
+  const aliveTeams = data.teams.filter(t => !t.eliminated);
+  
+  if (aliveTeams.length === 1) {
+    if (playerTeam && !playerTeam.eliminated) {
+      minigameStatus.innerHTML = '<h3>🎉 Your team won the minigame! 🎉</h3>';
+    } else {
+      minigameStatus.innerHTML = `<h3>Game Over! ${aliveTeams[0].name} wins!</h3>`;
+    }
+    switchContainer.innerHTML = '';
+    minigameFeedback.innerHTML = '';
+    return;
+  }
+
+  if (playerTeam && playerTeam.eliminated) {
+    minigameStatus.innerHTML = '<h3>💀 Your team has been eliminated!</h3>';
+    switchContainer.innerHTML = '<p>Watch the remaining teams battle it out...</p>';
+    minigameFeedback.innerHTML = '';
+    return;
+  }
+
+  const hasPlayerChosen = teamChoices[playerTeamIndex] !== undefined;
+  
+  if (data.roundPhase === "choosing") {
+    if (hasPlayerChosen) {
+      minigameStatus.innerHTML = `<h3>✅ Your choice is locked in!</h3>`;
+      minigameFeedback.innerHTML = '<p>Waiting for other teams to choose...</p>';
+      switchContainer.innerHTML = `<p>You chose Switch ${teamChoices[playerTeamIndex].switchIndex + 1}</p>`;
+    } else {
+      minigameStatus.innerHTML = `<h3>🎯 Round ${data.minigameRound || 1}: Choose Your Switch!</h3>`;
+      minigameFeedback.innerHTML = `<p>Choose wisely! ${data.totalSwitches} switches available, one contains a bomb 💣</p>`;
+      renderMinigameSwitches(data);
+    }
+  } else if (data.roundPhase === "reveal") {
+    minigameStatus.innerHTML = `<h3>🎭 Results Revealing...</h3>`;
+    minigameFeedback.innerHTML = '<p>Finding out who got the bomb...</p>';
+    showMinigameReveal(data);
+  } else if (data.roundPhase === "results") {
+    const playerChoice = teamChoices[playerTeamIndex];
+    const playerGotBomb = playerChoice && playerChoice.switchIndex === data.bombIndex;
+    
+    if (playerGotBomb) {
+      minigameStatus.innerHTML = '<h3>💥 Your team got the bomb!</h3>';
+      minigameFeedback.innerHTML = '<p style="color: #dc3545;">Better luck next time!</p>';
+    } else {
+      minigameStatus.innerHTML = '<h3>✅ Your team survived!</h3>';
+      minigameFeedback.innerHTML = '<p style="color: #28a745;">Safe for another round!</p>';
+    }
+    
+    showMinigameReveal(data);
+  }
+}
+
+function renderMinigameSwitches(data) {
+  switchContainer.innerHTML = '';
+  
+  for (let i = 0; i < data.totalSwitches; i++) {
+    const switchBtn = document.createElement("button");
+    switchBtn.className = "switch";
+    switchBtn.textContent = `Switch ${i + 1}`;
+    switchBtn.onclick = () => handleSwitchChoice(i, data);
+    switchContainer.appendChild(switchBtn);
+  }
+}
+
+function showMinigameReveal(data) {
+  switchContainer.innerHTML = '';
+  const teamChoices = data.teamChoices || {};
+  
+  for (let i = 0; i < data.totalSwitches; i++) {
+    const switchBtn = document.createElement("button");
+    switchBtn.className = "switch";
+    switchBtn.disabled = true;
+    
+    const teamThatChose = Object.entries(teamChoices).find(([teamIndex, choice]) => choice.switchIndex === i);
+    const isBomb = i === data.bombIndex;
+    
+    if (teamThatChose) {
+      const teamIndex = teamThatChose[0];
+      const team = data.teams[parseInt(teamIndex)];
+      
+      if (isBomb) {
+        switchBtn.className = "switch exploded";
+        switchBtn.textContent = `💥 ${team.name}`;
+      } else {
+        switchBtn.className = "switch safe";
+        switchBtn.textContent = `✅ ${team.name}`;
+      }
+    } else {
+      switchBtn.textContent = `Switch ${i + 1}`;
+      if (isBomb) {
+        switchBtn.style.backgroundColor = "#ffcccc";
+        switchBtn.textContent += " (💣)";
+      }
+    }
+    
+    switchContainer.appendChild(switchBtn);
+  }
+}
+
+async function handleSwitchChoice(choiceIndex, gameData) {
+  let playerTeamIndex = -1;
+  for (let i = 0; i < gameData.teams.length; i++) {
+    if (gameData.teams[i].members.includes(playerName)) {
+      playerTeamIndex = i;
+      break;
+    }
+  }
+  
+  if (playerTeamIndex === -1) {
+    minigameFeedback.innerHTML = '<div class="error">Error: Could not find your team!</div>';
+    return;
+  }
+
+  const switches = switchContainer.querySelectorAll('.switch');
+  switches.forEach(sw => {
+    sw.onclick = null;
+    sw.disabled = true;
+  });
+  
+  const clickedSwitch = switches[choiceIndex];
+  clickedSwitch.style.backgroundColor = "#ffc107";
+  clickedSwitch.textContent = "✅ Chosen!";
+  
+  try {
+    const gameRef = ref(db, GAME_ROOM);
+    await safeFirebaseOperation(async () => {
+      await update(gameRef, {
+        [`teamChoices/${playerTeamIndex}`]: {
+          switchIndex: choiceIndex,
+          playerName: playerName,
+          timestamp: Date.now()
+        }
+      });
+    }, "Failed to record choice");
+    
+    minigameFeedback.innerHTML = '<p>Choice locked in! Waiting for other teams...</p>';
+    
+  } catch (error) {
+    console.error("Error recording switch choice:", error);
+    minigameFeedback.innerHTML = `<div class="error">Error recording choice: ${error.message}</div>`;
+    
+    switches.forEach((sw, index) => {
+      sw.onclick = () => handleSwitchChoice(index, gameData);
+      sw.disabled = false;
+    });
+  }
+}
+/////////////////////////////////////////////////////////////////////
+document.getElementById("teacherBtn").onclick = () => {
+  document.getElementById("teacherPasswordBox").style.display = "block";
+};
+
+document.getElementById("teacherLoginBtn").onclick = () => {
+  const entered = document.getElementById("teacherPassword").value;
+  if (entered === TEACHER_PASSWORD) {
+    document.getElementById("teacherPasswordError").style.display = "none";
+
+    // Hide teacher button + password box
+    document.getElementById("teacherBtn").style.display = "none";
+    document.getElementById("teacherPasswordBox").style.display = "none";
+
+    selectRole("teacher");
+  } else {
+    document.getElementById("teacherPasswordError").textContent = "❌ Incorrect password";
+    document.getElementById("teacherPasswordError").style.display = "block";
+  }
+};
+
+document.getElementById("studentBtn").onclick = () => selectRole("student");
+/////////////////////////////////////////////////////////////////////////////  
 // Error handling
 window.addEventListener('error', (event) => {
-  console.error('Error:', event.error);
+  console.error('JavaScript Error:', event.error);
+  const errorMessage = `Unexpected error: ${event.error.message}`;
+  
   if (role === "teacher") {
-    teacherStatus.innerHTML = '<div class="error">Error: ' + event.error.message + '</div>';
-  } else if (role === "student") {
-    feedbackEl.innerHTML = '<div class="error">Error: ' + event.error.message + '</div>';
+    teacherStatus.innerHTML = `<div class="error">${errorMessage}</div>`;
+  } else {
+    const currentFeedback = currentView === "minigame" ? minigameFeedback : feedbackEl;
+    currentFeedback.innerHTML = `<div class="error">${errorMessage}</div>`;
   }
 });
 
-</script>
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  cleanupListeners();
+});
 
+</script>
 </body>
 </html>
