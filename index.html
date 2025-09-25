@@ -5,145 +5,382 @@
 <title>ESL Quiz with Team Minigame</title>
 <style>
   body { 
-    font-family: sans-serif; 
-    padding: 20px; 
-    text-align: center; 
-    max-width: 800px; 
-    margin: 0 auto; 
-  }
-  #teacherView, #studentView, #minigameView { display: none; }
-  .choice { 
-    padding: 10px 20px; 
-    margin: 5px; 
-    cursor: pointer; 
-    display: block; 
-    margin: 5px auto; 
-    background-color: #f0f0f0;
-    border: 2px solid #ccc;
-    border-radius: 5px;
-    min-width: 200px;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    padding: 0;
+    margin: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
     color: #333;
   }
+  
+  .header {
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7);
+    background-size: 400% 400%;
+    animation: gradientShift 4s ease infinite;
+    padding: 20px 0;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    margin-bottom: 30px;
+  }
+  
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .header h1 {
+    color: white;
+    font-size: 3em;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+  }
+  
+  .header .emoji {
+    font-size: 1.2em;
+    animation: bounce 2s infinite;
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+  
+  .main-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  #teacherView, #studentView, #minigameView { display: none; }
+  
+  .card {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    margin: 20px 0;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  
+  .teacher-card {
+    border-image: linear-gradient(45deg, #ff6b6b, #4ecdc4) 1;
+  }
+  
+  .student-card {
+    border-image: linear-gradient(45deg, #4ecdc4, #45b7d1) 1;
+  }
+  
+  .minigame-card {
+    border-image: linear-gradient(45deg, #96ceb4, #ffeaa7) 1;
+  }
+  
+  .lobby-buttons {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    margin: 40px 0;
+  }
+  
+  .role-button {
+    padding: 20px 40px;
+    font-size: 1.5em;
+    font-weight: bold;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  #teacherBtn {
+    background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+    color: white;
+  }
+  
+  #teacherBtn:hover {
+    background: linear-gradient(45deg, #ff5252, #ff6b6b);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255,107,107,0.4);
+  }
+  
+  #studentBtn {
+    background: linear-gradient(45deg, #4ecdc4, #44a08d);
+    color: white;
+  }
+  
+  #studentBtn:hover {
+    background: linear-gradient(45deg, #26d0ce, #4ecdc4);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(78,205,196,0.4);
+  }
+  
+  .choice { 
+    padding: 15px 25px; 
+    margin: 10px; 
+    cursor: pointer; 
+    display: block; 
+    margin: 10px auto; 
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border: 3px solid #fff;
+    border-radius: 15px;
+    min-width: 250px;
+    color: white;
+    font-size: 1.1em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  
   .choice:hover {
-    background-color: #e0e0e0;
+    background: linear-gradient(45deg, #764ba2, #667eea);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102,126,234,0.4);
   }
+  
   .choice:disabled { 
-    background-color: #ddd; 
-    cursor: default; 
+    background: #ddd;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+    color: #999;
   }
+  
   button {
-    padding: 10px 20px;
-    margin: 10px;
-    background-color: #007bff;
+    padding: 12px 25px;
+    margin: 8px;
+    background: linear-gradient(45deg, #45b7d1, #96ceb4);
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 25px;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 1em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   }
+  
   button:hover {
-    background-color: #0056b3;
+    background: linear-gradient(45deg, #96ceb4, #45b7d1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(69,183,209,0.4);
   }
+  
+  button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
   #feedback {
-    font-size: 18px;
+    font-size: 1.3em;
     font-weight: bold;
     margin: 20px 0;
-    min-height: 30px;
-  }
-  .error {
-    color: red;
-    background-color: #ffe6e6;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 10px 0;
-  }
-  .success {
-    color: green;
-  }
-  .warning {
-    color: orange;
-  }
-  .wrong {
-    color: red;
-  }
-  #playersList {
-    text-align: left;
-    background-color: #f9f9f9;
+    min-height: 40px;
     padding: 15px;
-    border-radius: 5px;
-    margin: 10px 0;
-  }
-  .connection-status {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    padding: 5px 10px;
     border-radius: 15px;
-    font-size: 12px;
+    background: rgba(255,255,255,0.9);
+  }
+  
+  .error {
+    color: #e74c3c;
+    background: linear-gradient(45deg, #ffecec, #ffe6e6);
+    padding: 15px;
+    border-radius: 15px;
+    margin: 15px 0;
+    border-left: 5px solid #e74c3c;
+    box-shadow: 0 4px 12px rgba(231,76,60,0.2);
+  }
+  
+  .success {
+    color: #27ae60;
     font-weight: bold;
   }
-  .connected {
-    background-color: #d4edda;
-    color: #155724;
+  
+  .warning {
+    color: #f39c12;
+    font-weight: bold;
   }
+  
+  .wrong {
+    color: #e74c3c;
+    font-weight: bold;
+  }
+  
+  #playersList {
+    text-align: left;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin: 15px 0;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  
+  #playersList h3 {
+    color: #ffeaa7;
+    margin-top: 0;
+  }
+  
+  .connection-status {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 1000;
+  }
+  
+  .connected {
+    background: linear-gradient(45deg, #00b894, #55efc4);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,184,148,0.3);
+  }
+  
   .disconnected {
-    background-color: #f8d7da;
-    color: #721c24;
+    background: linear-gradient(45deg, #fd79a8, #fdcb6e);
+    color: white;
+    box-shadow: 0 4px 12px rgba(253,121,168,0.3);
   }
   
   /* Minigame Styles */
   .switch {
     display: inline-block;
-    margin: 10px;
-    padding: 20px 30px;
-    background: #4CAF50;
+    margin: 15px;
+    padding: 25px 35px;
+    background: linear-gradient(45deg, #00cec9, #55efc4);
     color: white;
-    border-radius: 10px;
+    border-radius: 20px;
     cursor: pointer;
-    font-size: 20px;
-    transition: all 0.3s;
+    font-size: 1.3em;
+    font-weight: bold;
+    transition: all 0.3s ease;
     border: none;
-    min-width: 120px;
+    min-width: 150px;
+    box-shadow: 0 6px 18px rgba(0,206,201,0.3);
   }
+  
   .switch:hover {
-    background: #45a049;
-    transform: scale(1.05);
+    background: linear-gradient(45deg, #55efc4, #00cec9);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 10px 25px rgba(0,206,201,0.5);
   }
+  
   .switch:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+    transform: none;
   }
+  
   .team-info {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 10px 0;
-    border-left: 5px solid #007bff;
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin: 15px 0;
+    border-left: 8px solid #007bff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
   }
+  
+  .team-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  }
+  
   .team-eliminated {
-    background: #f8d7da;
+    background: #ffe6e6;
     border-left-color: #dc3545;
-    opacity: 0.7;
+    opacity: 0.8;
   }
+  
   .team-winner {
-    background: #d4edda;
+    background: linear-gradient(135deg, #d4f4dd, #c8e6c9);
     border-left-color: #28a745;
+    box-shadow: 0 5px 20px rgba(40,167,69,0.2);
   }
+  
   .representative {
     font-weight: bold;
     color: #007bff;
+    background: #e3f2fd;
+    padding: 5px 10px;
+    border-radius: 10px;
+    display: inline-block;
   }
+  
   .exploded {
-    background-color: #dc3545 !important;
-    animation: shake 0.5s;
+    background: linear-gradient(45deg, #e17055, #d63031) !important;
+    animation: explodeShake 0.6s ease-in-out;
   }
+  
   .safe {
-    background-color: #ffc107 !important;
+    background: linear-gradient(45deg, #fdcb6e, #f39c12) !important;
+    animation: celebratePulse 0.8s ease-in-out;
   }
-  @keyframes shake {
+  
+  @keyframes explodeShake {
     0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+    25% { transform: translateX(-8px) rotate(-2deg); }
+    75% { transform: translateX(8px) rotate(2deg); }
+  }
+  
+  @keyframes celebratePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+  
+  h2 {
+    color: #2d3436;
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .question-display {
+    background: linear-gradient(135deg, #74b9ff, #0984e3);
+    color: white;
+    padding: 25px;
+    border-radius: 20px;
+    margin: 20px 0;
+    box-shadow: 0 8px 25px rgba(116,185,255,0.3);
+  }
+  
+  .question-display h3 {
+    margin-top: 0;
+    font-size: 1.5em;
+    color: #ffeaa7;
+  }
+  
+  .score-display {
+    background: linear-gradient(45deg, #a29bfe, #6c5ce7);
+    color: white;
+    padding: 15px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 15px 0;
+    box-shadow: 0 5px 15px rgba(162,155,254,0.3);
+  }
+  
+  .lobby-description {
+    text-align: center;
+    color: white;
+    font-size: 1.3em;
+    margin: 30px 0;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
   }
 </style>
 </head>
@@ -151,43 +388,75 @@
 
 <div class="connection-status" id="connectionStatus">Connecting...</div>
 
-<h1>ESL Quiz with Team Minigame</h1>
+<div class="header">
+  <h1>
+    <span class="emoji">🎓</span>
+    ESL Quiz Adventure
+    <span class="emoji">🎮</span>
+  </h1>
+</div>
+
+<div class="main-container">
 
 <div id="lobby">
-  <p>Are you the teacher or a student?</p>
-  <button id="teacherBtn">Teacher</button>
-  <button id="studentBtn">Student</button>
-  <div id="connectionError" class="error" style="display: none;"></div>
+  <div class="card">
+    <div class="lobby-description">
+      <p>🌟 Welcome to the ESL Quiz Adventure! 🌟</p>
+      <p>Choose your role to begin the learning journey!</p>
+    </div>
+    
+    <div class="lobby-buttons">
+      <button id="teacherBtn" class="role-button">
+        👨‍🏫 Teacher
+      </button>
+      <button id="studentBtn" class="role-button">
+        🎒 Student
+      </button>
+    </div>
+    
+    <div id="connectionError" class="error" style="display: none;"></div>
+  </div>
 </div>
 
 <div id="teacherView">
-  <h2>Teacher Control Panel</h2>
-  <button id="startBtn">Start New Quiz</button>
-  <button id="nextBtn" style="display: none;">Next Question</button>
-  <button id="endBtn" style="display: none;">End Quiz</button>
-  <button id="startMinigameBtn" style="display: none;">Start Minigame</button>
-  <button id="nextRoundBtn" style="display: none;">Next Round</button>
-  <button id="resetBtn" style="display: none;">Reset Game</button>
-  <div id="teacherStatus"></div>
-  <div id="playersList"></div>
-  <div id="currentQuestionDisplay"></div>
-  <div id="teamsDisplay"></div>
+  <div class="card teacher-card">
+    <h2>👨‍🏫 Teacher Control Panel</h2>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0;">
+      <button id="startBtn">🚀 Start New Quiz</button>
+      <button id="nextBtn" style="display: none;">➡️ Next Question</button>
+      <button id="endBtn" style="display: none;">🏁 End Quiz</button>
+      <button id="startMinigameBtn" style="display: none;">🎮 Start Minigame</button>
+      <button id="nextRoundBtn" style="display: none;">🔄 Next Round</button>
+      <button id="resetBtn" style="display: none;">🔄 Reset Game</button>
+    </div>
+    
+    <div id="teacherStatus"></div>
+    <div id="playersList"></div>
+    <div id="currentQuestionDisplay" class="question-display" style="display: none;"></div>
+    <div id="teamsDisplay"></div>
+  </div>
 </div>
 
 <div id="studentView">
-  <h2 id="studentName"></h2>
-  <div id="waitingMessage">Waiting for teacher to start the quiz...</div>
-  <div id="questionContainer"></div>
-  <div id="feedback"></div>
-  <div id="scoreDisplay"></div>
+  <div class="card student-card">
+    <h2 id="studentName">🎒 Welcome Student!</h2>
+    <div id="waitingMessage" class="lobby-description">Waiting for teacher to start the quiz...</div>
+    <div id="questionContainer"></div>
+    <div id="feedback"></div>
+    <div id="scoreDisplay" class="score-display" style="display: none;"></div>
+  </div>
 </div>
 
 <div id="minigameView">
-  <h2>🎮 Team Minigame: Exploding Switches</h2>
-  <div id="minigameStatus"></div>
-  <div id="teamsInfo"></div>
-  <div id="switchContainer"></div>
-  <div id="minigameFeedback"></div>
+  <div class="card minigame-card">
+    <h2>🎮 Team Minigame: Exploding Switches 💣</h2>
+    <div id="minigameStatus"></div>
+    <div id="teamsInfo"></div>
+    <div id="switchContainer" style="text-align: center; margin: 30px 0;"></div>
+    <div id="minigameFeedback"></div>
+  </div>
+</div>
+
 </div>
 
 <script type="module">
@@ -490,11 +759,13 @@ function setupTeacherOffline() {
 function showCurrentQuestion() {
   if (questions[currentQuestionIndex]) {
     const q = questions[currentQuestionIndex];
-    currentQuestionDisplay.innerHTML = `
-      <h3>Current Question (${currentQuestionIndex + 1}/${questions.length}):</h3>
+    const display = document.getElementById("currentQuestionDisplay");
+    display.style.display = "block";
+    display.innerHTML = `
+      <h3>📚 Current Question (${currentQuestionIndex + 1}/${questions.length})</h3>
       <p><strong>${q.text}</strong></p>
-      <ul style="text-align: left;">
-        ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: green; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✓' : ''}</li>`).join('')}
+      <ul style="text-align: left; margin: 15px 0;">
+        ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: #ffeaa7; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✅' : ''}</li>`).join('')}
       </ul>
     `;
   }
@@ -836,34 +1107,38 @@ function watchGameState() {
 
 function updateTeacherDisplay(data) {
   if (data.players && Object.keys(data.players).length > 0) {
-    let playersHtml = '<h3>Connected Players:</h3><ul>';
+    let playersHtml = '<h3>🎓 Connected Students</h3><ul style="list-style: none; padding: 0;">';
     Object.entries(data.players).forEach(([player, info]) => {
       const score = data.scores?.[player] || 0;
       const status = info.online ? '🟢' : '🔴';
-      playersHtml += `<li>${status} ${player}: ${score} points</li>`;
+      playersHtml += `<li style="margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 8px;">${status} <strong>${player}</strong>: ${score} points</li>`;
     });
     playersHtml += '</ul>';
     playersList.innerHTML = playersHtml;
   } else {
-    playersList.innerHTML = '<p>No players connected yet.</p>';
+    playersList.innerHTML = '<p style="color: #ffeaa7;">📋 No students connected yet.</p>';
   }
 
   if (data.state === "quiz" && questions[currentQuestionIndex]) {
     const q = questions[currentQuestionIndex];
-    currentQuestionDisplay.innerHTML = `
-      <h3>Current Question (${currentQuestionIndex + 1}/${questions.length}):</h3>
+    const display = document.getElementById("currentQuestionDisplay");
+    display.style.display = "block";
+    display.innerHTML = `
+      <h3>📚 Current Question (${currentQuestionIndex + 1}/${questions.length})</h3>
       <p><strong>${q.text}</strong></p>
-      <ul style="text-align: left;">
-        ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: green; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✓' : ''}</li>`).join('')}
+      <ul style="text-align: left; margin: 15px 0;">
+        ${q.choices.map((choice, i) => `<li${i === q.correct ? ' style="color: #ffeaa7; font-weight: bold;"' : ''}>${choice}${i === q.correct ? ' ✅' : ''}</li>`).join('')}
       </ul>
     `;
   } else if (data.state === "results") {
-    currentQuestionDisplay.innerHTML = '<h3>Quiz Complete! 🎉</h3>';
+    const display = document.getElementById("currentQuestionDisplay");
+    display.style.display = "block";
+    display.innerHTML = '<h3>🎉 Quiz Complete!</h3><p>Ready to start the team minigame!</p>';
   } else if (data.state === "minigame") {
-    currentQuestionDisplay.innerHTML = '';
+    document.getElementById("currentQuestionDisplay").style.display = "none";
     updateTeamsDisplay(data);
   } else {
-    currentQuestionDisplay.innerHTML = '<p>No quiz in progress.</p>';
+    document.getElementById("currentQuestionDisplay").style.display = "none";
   }
 }
 
@@ -991,7 +1266,9 @@ function updateStudentDisplay(data) {
   if (currentView === "student" && data && data.scores) {
     const score = data.scores[playerName] || 0;
     const totalAnswered = Math.min(currentQuestionIndex + (questionAnswered ? 1 : 0), questions.length);
-    scoreDisplay.innerHTML = `<p>Your Score: ${score}/${totalAnswered}</p>`;
+    const display = document.getElementById("scoreDisplay");
+    display.style.display = "block";
+    display.innerHTML = `🎯 Your Score: ${score}/${totalAnswered}`;
   }
 }
 
