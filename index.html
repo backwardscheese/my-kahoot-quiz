@@ -403,12 +403,24 @@ function showView(viewName) {
 document.getElementById("teacherBtn").onclick = () => selectRole("teacher");
 document.getElementById("studentBtn").onclick = () => selectRole("student");
 
+// Teacher password - change this to whatever you want
+const TEACHER_PASSWORD = "teacher123";
+
 async function selectRole(r) {
   console.log("Role selected:", r, "Init complete:", initializationComplete, "Connection:", connectionStatus);
   
   if (!initializationComplete) {
     showConnectionError("System still initializing. Please wait a moment and try again.");
     return;
+  }
+  
+  // Check password for teacher access
+  if (r === "teacher") {
+    const enteredPassword = prompt("Enter teacher password:");
+    if (enteredPassword !== TEACHER_PASSWORD) {
+      alert("Incorrect password! Access denied.");
+      return;
+    }
   }
   
   role = r;
