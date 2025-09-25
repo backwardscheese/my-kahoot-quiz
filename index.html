@@ -344,6 +344,7 @@ const scoreDisplay = document.getElementById("scoreDisplay");
 const playersList = document.getElementById("playersList");
 const currentQuestionDisplay = document.getElementById("currentQuestionDisplay");
 const teamsDisplay = document.getElementById("teamsDisplay");
+const TEACHER_PASSWORD = "00000";
 
 // Minigame elements
 const minigameStatus = document.getElementById("minigameStatus");
@@ -379,34 +380,6 @@ function cleanupListeners() {
   gameListeners = [];
 }
 
-function createTeams(players, scores) {
-  const playerList = Object.keys(players).filter(name => players[name].online);
-  const playerScores = playerList.map(name => ({
-    name,
-    score: scores[name] || 0
-  })).sort((a, b) => b.score - a.score);
-
-  const teams = [
-    { name: "Team Alpha", members: [], eliminated: false, color: "#007bff" },
-    { name: "Team Beta", members: [], eliminated: false, color: "#28a745" },
-    { name: "Team Gamma", members: [], eliminated: false, color: "#dc3545" },
-    { name: "Team Delta", members: [], eliminated: false, color: "#ffc107" }
-  ];
-
-  playerScores.forEach((player, index) => {
-    const teamIndex = Math.floor(index / Math.ceil(playerScores.length / 4)) % 4;
-    teams[teamIndex].members.push(player.name);
-  });
-
-  return teams.filter(team => team.members.length > 0);
-}
-
-function selectRandomRepresentative(teamMembers, players) {
-  const onlineMembers = teamMembers.filter(member => players[member]?.online);
-  if (onlineMembers.length === 0) return null;
-  return onlineMembers[Math.floor(Math.random() * onlineMembers.length)];
-}
-
 // ===== View Management =====
 function showView(viewName) {
   lobby.style.display = "none";
@@ -440,6 +413,15 @@ async function selectRole(r) {
   if (!initializationComplete) {
     showConnectionError("System still initializing. Please wait a moment and try again.");
     return;
+  }
+
+  if (r === "teacher") {
+    const enteredPassword = prompt("Enter teacher password:");
+    if (enteredPassword !== TEACHER_PASSWORD) {
+      alert("❌ Incorrect password. Returning to lobby.");
+      showView("lobby");
+      return;
+    }
   }
   
   role = r;
