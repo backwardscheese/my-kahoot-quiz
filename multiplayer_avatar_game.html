@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESL Avatar Adventure</title>
+<style>
+  body { 
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+  }
+  
+  .header {
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7);
+    background-size: 400% 400%;
+    animation: gradientShift 4s ease infinite;
+    padding: 15px 0;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 100;
+  }
+  
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .header h1 {
+    color: white;
+    font-size: 2.5em;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+  }
+  
+  .header .emoji {
+    font-size: 1.2em;
+    animation: bounce 2s infinite;
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+  
+  .connection-status {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 1000;
+  }
+  
+  .connected {
+    background: linear-gradient(45deg, #00b894, #55efc4);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,184,148,0.3);
+  }
+  
+  .disconnected {
+    background: linear-gradient(45deg, #fd79a8, #fdcb6e);
+    color: white;
+    box-shadow: 0 4px 12px rgba(253,121,168,0.3);
+  }
+  
+  .login-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 120px);
+    padding: 20px;
+    overflow-y: auto;
+  }
+  
+  .login-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+  }
+  
+  .login-card h2 {
+    color: #2d3436;
+    margin-bottom: 30px;
+    font-size: 2em;
+  }
+  
+  .login-card input {
+    width: 80%;
+    padding: 15px;
+    font-size: 1.2em;
+    border: 3px solid #ddd;
+    border-radius: 15px;
+    margin: 15px 0;
+    text-align: center;
+    font-family: 'Comic Sans MS', cursive;
+  }
+  
+  .login-card input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+    box-shadow: 0 0 15px rgba(78,205,196,0.3);
+  }
+  
+  .login-card button {
+    width: 90%;
+    padding: 15px;
+    font-size: 1.3em;
+    font-weight: bold;
+    background: linear-gradient(45deg, #4ecdc4, #44a08d);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 20px 0;
+  }
+  
+  .login-card button:hover {
+    background: linear-gradient(45deg, #26d0ce, #4ecdc4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(78,205,196,0.4);
+  }
+  
+  .game-area {
+    display: none;
+    position: relative;
+    width: 100vw;
+    height: calc(100vh - 120px);
+    overflow: hidden;
+  }
+  
+  .game-canvas {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #74b9ff 0%, #0984e3 50%, #00cec9 100%);
+    position: relative;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 2px, transparent 2px),
+      radial-gradient(circle at 75% 75%, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+  
+  .avatar {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2em;
+    transition: none;
+    border: 4px solid white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transform-origin: center;
+  }
+  
+  .avatar .name {
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.4em;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  
+  .my-avatar {
+    border-color: #ffeaa7;
+    box-shadow: 0 4px 12px rgba(255,234,167,0.5), 0 0 0 3px rgba(255,234,167,0.3);
+  }
+  
+  .controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(255,255,255,0.9);
+    padding: 10px;
+    border-radius: 15px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    text-align: center;
+    font-size: 0.8em;
+  }
+  
+  .controls p {
+    margin: 3px 0;
+    font-weight: bold;
+    color: #2d3436;
+    font-size: 0.9em;
+  }
+  
+  .arrow-keys {
+    display: grid;
+    grid-template-columns: repeat(3, 30px);
+    grid-template-rows: repeat(2, 30px);
+    gap: 3px;
+    justify-content: center;
+    margin: 8px 0;
+  }
+  
+  .arrow-key {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .arrow-key:hover {
+    background: linear-gradient(45deg, #764ba2, #667eea);
+    transform: scale(1.1);
+  }
+  
+  .arrow-key.up { grid-column: 2; grid-row: 1; }
+  .arrow-key.left { grid-column: 1; grid-row: 2; }
+  .arrow-key.down { grid-column: 2; grid-row: 2; }
+  .arrow-key.right { grid-column: 3; grid-row: 2; }
+  
+  .players-list {
+    position: fixed;
+    top: 120px;
+    left: 15px;
+    background: rgba(255,255,255,0.9);
+    padding: 15px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    max-width: 200px;
+  }
+  
+  .players-list h3 {
+    margin: 0 0 10px 0;
+    color: #2d3436;
+    font-size: 1.1em;
+  }
+  
+  .player-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+    padding: 5px;
+    border-radius: 8px;
+    background: rgba(116,185,255,0.1);
+  }
+  
+  .player-avatar-mini {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+  }
+  
+  .error {
+    color: #e74c3c;
+    background: linear-gradient(45deg, #ffecec, #ffe6e6);
+    padding: 15px;
+    border-radius: 15px;
+    margin: 15px 0;
+    border-left: 5px solid #e74c3c;
+    box-shadow: 0 4px 12px rgba(231,76,60,0.2);
+  }
+</style>
+</head>
+<body>
+
+<div class="connection-status" id="connectionStatus">Connecting...</div>
+
+<div class="header">
+  <h1>
+    <span class="emoji">🎮</span>
+    ESL Avatar Adventure
+    <span class="emoji">🏃‍♂️</span>
+  </h1>
+</div>
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <h2>🎭 Choose Your Avatar!</h2>
+    <input type="text" id="playerName" placeholder="Enter your name" maxlength="15">
+    <div style="margin: 20px 0;">
+      <p style="margin: 10px 0; font-weight: bold;">Pick your avatar:</p>
+      <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+        <button class="avatar-choice" data-avatar="😊">😊</button>
+        <button class="avatar-choice" data-avatar="😎">😎</button>
+        <button class="avatar-choice" data-avatar="🤓">🤓</button>
+        <button class="avatar-choice" data-avatar="😍">😍</button>
+        <button class="avatar-choice" data-avatar="🤔">🤔</button>
+        <button class="avatar-choice" data-avatar="😂">😂</button>
+        <button class="avatar-choice" data-avatar="🥳">🥳</button>
+        <button class="avatar-choice" data-avatar="😇">😇</button>
+        <button class="avatar-choice" data-avatar="🤩">🤩</button>
+        <button class="avatar-choice" data-avatar="😋">😋</button>
+      </div>
+    </div>
+    <button id="joinGame">🚀 Join Adventure!</button>
+    <div id="loginError" class="error" style="display: none;"></div>
+  </div>
+</div>
+
+<div id="gameArea" class="game-area">
+  <div id="gameCanvas" class="game-canvas"></div>
+  
+  <div class="controls">
+    <p>🎮 Use arrow keys or buttons to move!</p>
+    <div class="arrow-keys">
+      <button class="arrow-key up" data-direction="up">⬆️</button>
+      <button class="arrow-key left" data-direction="left">⬅️</button>
+      <button class="arrow-key down" data-direction="down">⬇️</button>
+      <button class="arrow-key right" data-direction="right">➡️</button>
+    </div>
+  </div>
+  
+  <div class="players-list">
+    <h3>🎭 Players Online</h3>
+    <div id="playersList"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, set, update, onValue, off, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+// ===== Firebase Configuration =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAwCGVcbFrNIcRtbltP8ENl4Z77IsmzoSo",
+  authDomain: "esl-quiz.firebaseapp.com",
+  databaseURL: "https://esl-quiz-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "esl-quiz",
+  storageBucket: "esl-quiz.firebasestorage.app",
+  messagingSenderId: "999634500142",
+  appId: "1:999634500142:web:17b206cfaa5a2f6212bdbf"
+};
+
+let app, db;
+let connectionStatus = false;
+let initializationComplete = false;
+
+try {
+  app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+  console.log("Firebase initialized successfully");
+  
+  initializationComplete = true;
+  
+  const connectedRef = ref(db, ".info/connected");
+  onValue(connectedRef, (snapshot) => {
+    connectionStatus = snapshot.val();
+    console.log("Connection status:", connectionStatus);
+    updateConnectionStatus();
+  }, (error) => {
+    console.error("Connection monitoring error:", error);
+    connectionStatus = false;
+    initializationComplete = true;
+    updateConnectionStatus();
+  });
+  
+} catch (error) {
+  console.error("Firebase initialization error:", error);
+  initializationComplete = true;
+  updateConnectionStatus();
+}
+
+// Force initialization after timeout
+setTimeout(() => {
+  if (!initializationComplete) {
+    initializationComplete = true;
+    updateConnectionStatus();
+  }
+}, 3000);
+
+function updateConnectionStatus() {
+  const statusEl = document.getElementById("connectionStatus");
+  const joinBtn = document.getElementById("joinGame");
+  
+  if (!initializationComplete) {
+    statusEl.textContent = "🔄 Initializing...";
+    statusEl.className = "connection-status disconnected";
+    if (joinBtn) joinBtn.disabled = true;
+    return;
+  }
+  
+  if (connectionStatus) {
+    statusEl.textContent = "🟢 Connected";
+    statusEl.className = "connection-status connected";
+    if (joinBtn) joinBtn.disabled = false;
+  } else {
+    statusEl.textContent = "🟡 Offline Mode";
+    statusEl.className = "connection-status disconnected";
+    if (joinBtn) joinBtn.disabled = false;
+  }
+}
+
+// Game variables
+let playerName = "";
+let selectedAvatar = "😊";
+let myPosition = { x: 400, y: 300 };
+let players = {};
+let gameListeners = [];
+const GAME_ROOM = "avatarGame";
+
+// Smooth movement variables
+const MAX_SPEED = 8; // Maximum pixels per frame
+const ACCELERATION = 0.8; // How quickly we speed up
+const DECELERATION = 0.85; // How quickly we slow down (0.85 = 15% reduction per frame)
+const UPDATE_RATE = 16; // 60 FPS
+
+// Movement state
+let velocity = { x: 0, y: 0 };
+let keysPressed = {};
+let movementInterval = null;
+
+// Avatar colors
+const avatarColors = [
+  '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7',
+  '#fd79a8', '#6c5ce7', '#a29bfe', '#fd79a8', '#00b894'
+];
+
+// DOM elements
+const loginScreen = document.getElementById("loginScreen");
+const gameArea = document.getElementById("gameArea");
+const gameCanvas = document.getElementById("gameCanvas");
+const playerNameInput = document.getElementById("playerName");
+const joinGameBtn = document.getElementById("joinGame");
+const playersListEl = document.getElementById("playersList");
+const loginError = document.getElementById("loginError");
+
+// Avatar selection
+document.querySelectorAll('.avatar-choice').forEach(btn => {
+  btn.style.cssText = `
+    width: 50px; height: 50px; border: 3px solid #ddd; border-radius: 50%;
+    background: white; font-size: 1.5em; cursor: pointer; margin: 5px;
+    transition: all 0.3s ease;
+  `;
+  
+  btn.onclick = () => {
+    document.querySelectorAll('.avatar-choice').forEach(b => b.style.borderColor = '#ddd');
+    btn.style.borderColor = '#4ecdc4';
+    btn.style.boxShadow = '0 0 15px rgba(78,205,196,0.5)';
+    selectedAvatar = btn.dataset.avatar;
+  };
+});
+
+// Login functionality
+joinGameBtn.onclick = async () => {
+  const name = playerNameInput.value.trim();
+  if (!name) {
+    showError("Please enter your name!");
+    return;
+  }
+  
+  if (!connectionStatus) {
+    showError("No connection to database. Please check your internet connection.");
+    return;
+  }
+  
+  playerName = name;
+  await joinGame();
+};
+
+playerNameInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    joinGameBtn.click();
+  }
+});
+
+function showError(message) {
+  loginError.textContent = message;
+  loginError.style.display = 'block';
+  setTimeout(() => {
+    loginError.style.display = 'none';
+  }, 3000);
+}
+
+// Game functions
+async function joinGame() {
+  try {
+    // Random starting position
+    const canvasRect = gameCanvas.getBoundingClientRect();
+    myPosition = {
+      x: Math.random() * (canvasRect.width - 100) + 50,
+      y: Math.random() * (canvasRect.height - 100) + 50
+    };
+    
+    const playerColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+    
+    // Add player to Firebase
+    const playerRef = ref(db, `${GAME_ROOM}/players/${playerName}`);
+    await set(playerRef, {
+      name: playerName,
+      avatar: selectedAvatar,
+      x: myPosition.x,
+      y: myPosition.y,
+      color: playerColor,
+      online: true,
+      lastUpdate: Date.now()
+    });
+    
+    // Set up disconnect handling
+    onDisconnect(playerRef).remove();
+    
+    // Switch to game view
+    loginScreen.style.display = 'none';
+    gameArea.style.display = 'block';
+    
+    // Start listening for other players
+    watchPlayers();
+    
+    // Set up controls
+    setupControls();
+    
+    console.log("Joined game as:", playerName);
+    
+  } catch (error) {
+    console.error("Error joining game:", error);
+    showError("Failed to join game: " + error.message);
+  }
+}
+
+function watchPlayers() {
+  const playersRef = ref(db, `${GAME_ROOM}/players`);
+  const callback = (snapshot) => {
+    const data = snapshot.val();
+    players = data || {};
+    updateGameDisplay();
+    updatePlayersList();
+  };
+  
+  onValue(playersRef, callback);
+  gameListeners.push({ ref: playersRef, callback });
+}
+
+function updateGameDisplay() {
+  // Clear existing avatars
+  document.querySelectorAll('.avatar').forEach(avatar => avatar.remove());
+  
+  // Add all players
+  Object.entries(players).forEach(([name, player]) => {
+    if (player.online) {
+      createAvatarElement(name, player);
+    }
+  });
+}
+
+function createAvatarElement(name, player) {
+  const existingAvatar = document.getElementById(`avatar-${name}`);
+  if (existingAvatar) {
+    // Update existing avatar position smoothly
+    existingAvatar.style.left = player.x + 'px';
+    existingAvatar.style.top = player.y + 'px';
+    return;
+  }
+  
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.id = `avatar-${name}`;
+  
+  if (name === playerName) {
+    avatar.classList.add('my-avatar');
+  }
+  
+  avatar.style.left = player.x + 'px';
+  avatar.style.top = player.y + 'px';
+  avatar.style.backgroundColor = player.color;
+  avatar.innerHTML = `
+    ${player.avatar}
+    <div class="name">${name}</div>
+  `;
+  
+  gameCanvas.appendChild(avatar);
+}
+
+function updatePlayersList() {
+  const onlinePlayers = Object.entries(players).filter(([name, player]) => player.online);
+  
+  let listHtml = '';
+  onlinePlayers.forEach(([name, player]) => {
+    const isMe = name === playerName;
+    listHtml += `
+      <div class="player-item" style="${isMe ? 'background: rgba(255,234,167,0.3);' : ''}">
+        <div class="player-avatar-mini" style="background: ${player.color};">
+          ${player.avatar}
+        </div>
+        <span>${name}${isMe ? ' (You)' : ''}</span>
+      </div>
+    `;
+  });
+  
+  playersListEl.innerHTML = listHtml;
+}
+
+// Smooth movement system with acceleration
+function startMovementLoop() {
+  if (movementInterval) return;
+  
+  movementInterval = setInterval(() => {
+    const canvasRect = gameCanvas.getBoundingClientRect();
+    let targetVelocityX = 0;
+    let targetVelocityY = 0;
+    
+    // Calculate target velocity based on pressed keys
+    if (keysPressed['ArrowUp'] || keysPressed['up']) {
+      targetVelocityY -= MAX_SPEED;
+    }
+    if (keysPressed['ArrowDown'] || keysPressed['down']) {
+      targetVelocityY += MAX_SPEED;
+    }
+    if (keysPressed['ArrowLeft'] || keysPressed['left']) {
+      targetVelocityX -= MAX_SPEED;
+    }
+    if (keysPressed['ArrowRight'] || keysPressed['right']) {
+      targetVelocityX += MAX_SPEED;
+    }
+    
+    // Normalize diagonal movement so it's not faster
+    if (targetVelocityX !== 0 && targetVelocityY !== 0) {
+      const length = Math.sqrt(targetVelocityX * targetVelocityX + targetVelocityY * targetVelocityY);
+      targetVelocityX = (targetVelocityX / length) * MAX_SPEED;
+      targetVelocityY = (targetVelocityY / length) * MAX_SPEED;
+    }
+    
+    // Apply acceleration/deceleration
+    if (targetVelocityX !== 0) {
+      // Accelerate towards target
+      velocity.x += (targetVelocityX - velocity.x) * ACCELERATION;
+    } else {
+      // Decelerate to stop
+      velocity.x *= DECELERATION;
+    }
+    
+    if (targetVelocityY !== 0) {
+      // Accelerate towards target
+      velocity.y += (targetVelocityY - velocity.y) * ACCELERATION;
+    } else {
+      // Decelerate to stop
+      velocity.y *= DECELERATION;
+    }
+    
+    // Stop very small movements to prevent jittering
+    if (Math.abs(velocity.x) < 0.1) velocity.x = 0;
+    if (Math.abs(velocity.y) < 0.1) velocity.y = 0;
+    
+    // Calculate new position
+    let newX = myPosition.x + velocity.x;
+    let newY = myPosition.y + velocity.y;
+    
+    // Boundary collision with smooth stopping
+    if (newX <= 10) {
+      newX = 10;
+      velocity.x = 0;
+    } else if (newX >= canvasRect.width - 70) {
+      newX = canvasRect.width - 70;
+      velocity.x = 0;
+    }
+    
+    if (newY <= 10) {
+      newY = 10;
+      velocity.y = 0;
+    } else if (newY >= canvasRect.height - 70) {
+      newY = canvasRect.height - 70;
+      velocity.y = 0;
+    }
+    
+    // Update position if moved
+    if (Math.abs(newX - myPosition.x) > 0.1 || Math.abs(newY - myPosition.y) > 0.1) {
+      myPosition.x = newX;
+      myPosition.y = newY;
+      updateMyAvatarPosition();
+      
+      // Throttled Firebase updates
+      clearTimeout(window.positionUpdateTimeout);
+      window.positionUpdateTimeout = setTimeout(updateFirebasePosition, 100);
+    }
+    
+    // Stop movement loop if no movement and no keys pressed
+    if (Object.keys(keysPressed).length === 0 && Math.abs(velocity.x) < 0.1 && Math.abs(velocity.y) < 0.1) {
+      velocity.x = 0;
+      velocity.y = 0;
+      clearInterval(movementInterval);
+      movementInterval = null;
+    }
+  }, UPDATE_RATE);
+}
+
+function updateMyAvatarPosition() {
+  const myAvatar = document.getElementById(`avatar-${playerName}`);
+  if (myAvatar) {
+    myAvatar.style.left = myPosition.x + 'px';
+    myAvatar.style.top = myPosition.y + 'px';
+  }
+}
+
+async function updateFirebasePosition() {
+  if (!connectionStatus) return;
+  
+  try {
+    const playerRef = ref(db, `${GAME_ROOM}/players/${playerName}`);
+    await update(playerRef, {
+      x: myPosition.x,
+      y: myPosition.y,
+      lastUpdate: Date.now()
+    });
+  } catch (error) {
+    console.error("Error updating position:", error);
+  }
+}
+
+function setupControls() {
+  // Keyboard controls with smooth movement
+  document.addEventListener('keydown', (e) => {
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'ArrowDown':
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        e.preventDefault();
+        if (!keysPressed[e.key]) {
+          keysPressed[e.key] = true;
+          startMovementLoop();
+        }
+        break;
+    }
+  });
+  
+  document.addEventListener('keyup', (e) => {
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'ArrowDown':
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        e.preventDefault();
+        delete keysPressed[e.key];
+        break;
+    }
+  });
+  
+  // Button controls with smooth movement
+  document.querySelectorAll('.arrow-key').forEach(btn => {
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const direction = btn.dataset.direction;
+      keysPressed[direction] = true;
+      startMovementLoop();
+    });
+    
+    btn.addEventListener('mouseup', (e) => {
+      e.preventDefault();
+      const direction = btn.dataset.direction;
+      delete keysPressed[direction];
+    });
+    
+    btn.addEventListener('mouseleave', (e) => {
+      e.preventDefault();
+      const direction = btn.dataset.direction;
+      delete keysPressed[direction];
+    });
+    
+    // Touch support
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const direction = btn.dataset.direction;
+      keysPressed[direction] = true;
+      startMovementLoop();
+    });
+    
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const direction = btn.dataset.direction;
+      delete keysPressed[direction];
+    });
+  });
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  gameListeners.forEach(({ ref: dbRef, callback }) => {
+    off(dbRef, 'value', callback);
+  });
+});
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  updateGameDisplay();
+});
+
+</script>
+</body>
+</html>
